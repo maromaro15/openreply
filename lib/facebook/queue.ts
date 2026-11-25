@@ -67,7 +67,14 @@ export interface FacebookBotReplyJob {
   triggerMid: string;
 }
 
-export type FacebookJob = FacebookCommentJob | FacebookMessageJob | FacebookBotReplyJob;
+export const ALERT_SEND_JOB = "alert-send";
+
+/** One handoff alert to one recipient: an AlertDelivery row. */
+export interface AlertSendJob {
+  deliveryId: string;
+}
+
+export type FacebookJob = FacebookCommentJob | FacebookMessageJob | FacebookBotReplyJob | AlertSendJob;
 
 let queue: Queue<FacebookJob> | null = null;
 
@@ -99,6 +106,10 @@ export function jobIdPart(value: string): string {
 
 export function commentJobId(pageId: string, commentId: string): string {
   return `fbc_${jobIdPart(pageId)}_${jobIdPart(commentId)}`;
+}
+
+export function alertJobId(deliveryId: string): string {
+  return `alert_${jobIdPart(deliveryId)}`;
 }
 
 export function botReplyJobId(conversationId: string, triggerMid: string): string {

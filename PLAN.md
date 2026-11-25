@@ -1022,7 +1022,7 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 | الكشف | `attachments[].type == "audio"`، فيُحفظ السجل بـ `transcriptStatus=PENDING` |
 | التحميل | فوراً، لأن روابط CDN مؤقتة. https فقط، وبحد 15MB (`FACEBOOK_AUDIO_MAX_BYTES`)، ومهلة 20 ثانية. لا نخزّن ملف الصوت، بل النص فقط |
 | الصيغة | MP3 أو WAV يُرسل كما هو، وغيرهما يُحوَّل بـ ffmpeg إلى MP3 أحادي 16kHz. أسجّل الـ MIME الحقيقي في أول رسالة |
-| التفريغ | `generateContent` بالنص `"اكتب كلام هذا الشخص كما قاله، بالدارجة الجزائرية أو الفرنسية أو العربية"` حرفياً، مع `inline_data` للصوت و`temperature: 0`. قابل للتغيير بـ `GEMINI_TRANSCRIBE_PROMPT` |
+| التفريغ | `generateContent` بالنص `"اكتب كلام هذا الشخص كما قاله، بالدارجة الجزائرية أو الفرنسية أو العربية"` حرفياً، مع `inline_data` للصوت. الـ temperature متروكة للموديل كما تنصح Google لموديلات Gemini 3، إلا إن ضُبط `GEMINI_TEMPERATURE`. التعليمة قابلة للتغيير بـ `GEMINI_TRANSCRIBE_PROMPT` |
 | النتيجة | `transcript` على الرسالة نفسها، والبوت يستقبله كرسالة مكتوبة. التنبيهات تعرض النص المفرّغ كـ «آخر رسالة» |
 | الفشل | `transcriptStatus=FAILED` ثم تحويل بتصنيف `AUDIO_FAILED` |
 | المفتاح | `GOOGLE_API_KEY` في بيئة السيرفر فقط |
@@ -1174,6 +1174,18 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 - جدول التوجيه (القسم 6.10).
 - زر **«إرسال تنبيه تجريبي»** لمستلم واحد أو للجميع. يعرض نجاح أو فشل كل قناة فوراً مع سبب الخطأ.
 - سجل آخر التنبيهات المرسلة وأخطائها.
+
+**ما نُفّذ في المرحلة 8:**
+
+- **ثلاث وحدات من subagents** (القسم 6.18)، كل واحدة في worktree معزول. راجعتها سطراً بسطر ودمجتها واحدة بعد الأخرى، وبعد كل دمج شغّلت الاختبارات وtypecheck وlint:
+  - `lib/alerts/message.ts`: المحتوى العربي، مع escaping كامل وقصّ آمن للإيموجي وحد 4096 حرفاً. النصوص الثابتة للتنبيه مكتوبة داخل الملف لأن التنبيهات بالعربية دائماً، والتصنيفات والأسباب من الكتالوج المشترك.
+  - `lib/alerts/telegram.ts`: التوكن يُخفى من كل رسالة خطأ، و`retry_after` يُقرأ، والزر يُحذف لأي رابط غير عام.
+  - `lib/alerts/email.ts`: SMTP أو Resend كما في روابط الدخول، مع مهلة للإرسال، ورسائل أخطاء بلا مفاتيح ولا كلمات سر.
+- **الإرسال:** صف `AlertDelivery` لكل مستلم بمفتاح `handoff:<eventId>:<recipientId>`، ولكل صف job خاص. 5 محاولات، وتأخير Telegram (`retry_after`) يُحترم عبر backoff مخصص في العامل.
+- **ما لم يُرسل:** حدث `HANDOFF` لم تُنشأ تنبيهاته (Redis متوقف لحظتها مثلاً) يلتقطه العامل في جولته كل ساعة.
+- **البريد** يُنظَّف ويُتحقق منه بنفس قاعدة المُرسِل عند الحفظ، فلا يُحفظ عنوان سيفشل دائماً.
+- **بوت له webhook عند خدمة أخرى** (409 من Telegram): الواجهة تقول ذلك وتطلب إدخال الـ Chat ID يدوياً.
+- **تحقق حي:** Telegram وResend محجوبان في بيئة التطوير هذه، فتحققت من مسارات الفشل: الزر التجريبي يعرض سبب الفشل لكل قناة، والتحويل الحقيقي ينشئ تنبيهاً للمستلم الافتراضي ويحاوله العامل ويسجّل السبب ويعيد المحاولة. **الإرسال الفعلي يُختبر على سيرفرك** (الدليل، المرحلة 17).
 
 **الدليل العربي** يشرح خطوة بخطوة:
 
@@ -1360,6 +1372,8 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 | D `transcribe` (للمرحلة 9) | تحميل الصوت بحدوده، وتحويله بـ ffmpeg، ونداء Gemini بـ `inline_data` والتعليمة الحرفية | `lib/ai/transcribe.ts`، `lib/ai/audio.ts`، `__tests__/facebook/transcribe.test.ts` | `lib/ai/gemini.ts` (قراءة فقط) |
 | الرئيسي | التوجيه، وjob الإرسال مع `AlertDelivery`، والدمج مع التحويل، والـ APIs، وشاشة التنبيهات، ودمج التفريغ في عامل الرسائل، والملفات المشتركة | كل ما عدا ما سبق | A وB وC قبل التوجيه وjob الإرسال |
 
+**النتيجة:** A وB وC دُمجت في المرحلة 8 بعد المراجعة. D سلّم وحدته، وتُدمج في المرحلة 9.
+
 جداول المراحل 10 إلى 14 تُكتب هنا قبل بدء كل منها.
 
 ---
@@ -1448,7 +1462,7 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 | `bot-classify.test.ts` | 7 | تحويل مخرج الموديل إلى تصنيف، والتصنيفات التي يحددها الكود (`NOT_IN_KB` و`OTHER` و`AUDIO_FAILED`) |
 | `bot-reply.test.ts` | 7 | رد ناجح، تحويل عند عدم المعرفة، تحويل عند فشل Gemini، رسالة التحويل مرة واحدة، claim يمنع التكرار، النافذة مغلقة، الـ debounce، وضع HUMAN صامت، حدث `HANDOFF` يطلق التنبيهات |
 | `gemini-client.test.ts` | 7 | شكل الطلب (`x-goog-api-key`، `inline_data`، JSON schema)، تحليل الرد، أخطاء 429 و5xx والحظر |
-| `alerts-routing.test.ts` | 8 | تصنيف موجَّه، تصنيف بلا توجيه يذهب للافتراضيين، مستلم معطّل يُتخطّى، لا مستلمين يعني لا شيء، لا تسرّب بين البراندات |
+| `alerts-routing.db.test.ts` | 8 | على **Postgres حقيقي**: تصنيف موجَّه، تصنيف بلا توجيه يذهب للافتراضيين، مستلم معطّل يُتخطّى، لا مستلمين يعني لا شيء، لا تسرّب بين البراندات، حذف المستلم يحذف توجيهاته |
 | `alerts-message.test.ts` | 8 | المحتوى: البراند والصفحة والزبون والتصنيف والسبب وآخر رسالة أو النص المفرّغ والرابط، مع escaping لـ HTML وقصّ النصوص الطويلة |
 | `alerts-telegram.test.ts` | 8 | شكل `sendMessage` وزر الرابط، وحذف الزر لرابط غير https، و`getMe` و`getUpdates`، وأخطاء 401 و400 و429 مع `retry_after` |
 | `alerts-email.test.ts` | 8 | طلب Resend (`from` و`to` و`subject` و`html` و`text`)، ومسار SMTP عند ضبط `EMAIL_SERVER` |
@@ -1506,7 +1520,7 @@ npm run build                                          # في المراحل ا�
 | **5** ✅ | الـ webhook والطابور والعامل والتعليقات: الـ route، و`facebook-processing`، و`worker/facebook-worker.ts` (مع heartbeat وفحص يومي)، والرد الخاص والعلني، وواجهة الحملات وسجل التعليقات | `webhook-route` و`comment-worker` و`campaigns-api` و`rate-limit-namespace.redis` و`comments.db`، و14 فحصاً حياً (خادم ويب، وعامل حقيقي، وRedis، وPostgres) |
 | **6** ✅ | الرسائل والـ echoes وصندوق Messenger: الحفظ، والنافذة، ومعالجة `message_echoes`، وواجهة `/facebook/inbox` بشارات التصنيف وفلاترها، ورد الإنسان، والتولّي والإرجاع | `message-worker` و`inbox-api` و`messages.db`، و45 فحصاً حياً في المتصفح |
 | **7** ✅ | قاعدة المعرفة والبوت والتصنيف: الـ API والواجهة، وعميل Gemini، والـ prompt، والحارس، والتصنيف، وjob الرد، وأحداث `HANDOFF`، و«جرّب البوت» | `knowledge-api` و`gemini-client` و`bot-prompt` و`bot-guard` و`bot-classify` و`bot-reply` و`bot-reply.db`، و24 فحصاً حياً في المتصفح |
-| **8** | التنبيهات والتوجيه: Telegram والبريد، وjob الإرسال، وصفحة `/facebook/alerts` (التوكن، وجلب الـ Chat IDs، والمستلمون، وجدول التوجيه، والزر التجريبي، والسجل) | `alerts-routing` و`alerts-message` و`alerts-telegram` و`alerts-email` و`alerts-delivery` و`alerts-api` |
+| **8** ✅ | التنبيهات والتوجيه: Telegram والبريد، وjob الإرسال، وصفحة `/facebook/alerts` (التوكن، وجلب الـ Chat IDs، والمستلمون، وجدول التوجيه، والزر التجريبي، والسجل) | `alerts-routing.db` و`alerts-message` و`alerts-telegram` و`alerts-email` و`alerts-delivery` و`alerts-api`، و23 فحصاً حياً في المتصفح |
 | **9** | الرسائل الصوتية: التحميل وffmpeg والتفريغ والعرض في الـ Inbox وفي التنبيهات (والتفريغ نفسه يخدم المقابلة الصوتية في المرحلة 14) | `transcribe` |
 | **10** | كتالوج المنتجات (القسم 6.12): قالب الخصائص لكل براند، والبطاقات، والألوان بأكوادها وصورها، والصور، وحقول الإقناع، والمنتجات البديلة، والشاشات، واستعمال البوت للكتالوج | `product-attributes` و`products-api` و`product-images` و`catalog-prompt` و`products.db`، وفحص في المتصفح |
 | **11** | شخصية البوت وهدفه ودليل البيع (القسم 6.16): الإعدادات، والنسخة الافتراضية من الدليل، وحالة الزبون، وجمع الطلبية و`ORDER_READY`، وتوسيع الحارس | `bot-persona` و`bot-state` و`bot-guard-claims` |

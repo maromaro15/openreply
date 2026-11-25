@@ -18,6 +18,7 @@ import type { Job } from "bullmq";
 import type { FacebookConversation, FacebookMessage, FacebookPage } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
 import { getBotHistoryMessages } from "@/lib/ai/env";
+import { enqueueHandoffAlerts } from "@/lib/alerts/dispatch";
 import { answerCustomer } from "@/lib/bot/answer";
 import { SYSTEM_REASONS, type BotDecision } from "@/lib/bot/classify";
 import { getBotSettings, listKnowledge, type BotSettingsView } from "@/lib/bot/knowledge";
@@ -186,6 +187,11 @@ async function handOff(
   if (decision.detail) {
     console.log(`[Facebook bot] ${conversation.id} handed off (${decision.source}): ${decision.detail}`);
   }
+  // The team is called first. A failure here must not undo the handoff: the
+  // worker's hourly sweep queues alerts that were missed.
+  await enqueueHandoffAlerts(handoff.eventId).catch((error) => {
+    console.error(`[Facebook bot] Alerts for ${handoff.eventId} not queued:`, error instanceof Error ? error.message : error);
+  });
 
   const fresh = await prisma.facebookPage.findUnique({ where: { id: conversation.page.id }, select: { status: true } });
   if (!tellCustomer || fresh?.status !== "ACTIVE" || !isBotWindowOpen(conversation.lastInboundAt)) {

@@ -9,6 +9,7 @@ import os from "node:os";
 import { createFacebookWorker } from "@/lib/facebook/worker";
 import { recordFacebookHeartbeat } from "@/lib/facebook/health";
 import { runDailyMaintenance } from "@/lib/facebook/maintenance";
+import { sweepUnqueuedHandoffs } from "@/lib/alerts/dispatch";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
@@ -32,6 +33,13 @@ async function maintenance() {
     if (result) console.log("[Facebook worker] Daily maintenance:", result);
   } catch (error) {
     console.error("[Facebook worker] Maintenance failed:", error instanceof Error ? error.message : error);
+  }
+  try {
+    // Handoffs of the last hour whose alerts never got queued.
+    const queued = await sweepUnqueuedHandoffs();
+    if (queued) console.log(`[Facebook worker] Queued ${queued} missed alert(s)`);
+  } catch (error) {
+    console.error("[Facebook worker] Alert sweep failed:", error instanceof Error ? error.message : error);
   }
 }
 
