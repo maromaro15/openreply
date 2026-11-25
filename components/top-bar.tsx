@@ -7,6 +7,8 @@
  */
 
 import type { StaticMessageKey } from "@/lib/i18n";
+import { moduleTitle } from "@/lib/facebook/i18n";
+import { useFbI18n } from "@/lib/facebook/i18n/client";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePathname } from "next/navigation";
 
@@ -36,7 +38,10 @@ export default function TopBar({
   instagramAccountCount,
 }: TopBarProps) {
   const { t } = useI18n();
+  const { t: tf } = useFbI18n();
   const pathname = usePathname();
+  // Agency and Facebook screens carry their own titles (lib/facebook/i18n).
+  const moduleKey = moduleTitle(pathname);
   const title: StaticMessageKey = pageTitles[pathname] ?? (
     pathname.endsWith("/edit") ? "Edit campaign"
       : pathname.startsWith("/campaigns/") ? "Campaign details" : "Dashboard"
@@ -61,7 +66,9 @@ export default function TopBar({
         >
           {t("Menu")}
         </button>
-        <h1 className="truncate text-base font-semibold sm:text-lg">{t(title)}</h1>
+        <h1 className="truncate text-base font-semibold sm:text-lg">
+          {moduleKey ? tf(moduleKey) : t(title)}
+        </h1>
       </div>
 
       {instagramAccountCount > 0 ? (

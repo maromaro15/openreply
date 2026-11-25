@@ -5,6 +5,7 @@ import DashboardShell from "@/components/dashboard-shell";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/client";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
+import { findSelectedMembership } from "@/lib/agency/active-workspace";
 
 export async function generateMetadata() {
   const { t } = await getI18n();
@@ -23,10 +24,15 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const workspace = await ensureWorkspaceForUser(
+  // Still runs first: it accepts pending invitations and creates the first
+  // workspace on first sign-in. The brand picked in the switcher wins when
+  // the user belongs to it.
+  const firstWorkspace = await ensureWorkspaceForUser(
     session.user.id,
     session.user.email
   );
+  const workspace =
+    (await findSelectedMembership(session.user.id))?.workspace ?? firstWorkspace;
   const accounts = await prisma.instagramAccount.findMany({
     where: { workspaceId: workspace.id },
     orderBy: { connectedAt: "desc" },

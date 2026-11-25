@@ -1,4 +1,5 @@
 import type { Workspace, WorkspaceRole } from "@/app/generated/prisma/client";
+import { findSelectedMembership } from "@/lib/agency/active-workspace";
 import { getCurrentUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db/client";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
@@ -35,11 +36,15 @@ export async function getCurrentWorkspaceContext(): Promise<WorkspaceContext | n
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId },
-    include: { workspace: true },
-    orderBy: { createdAt: "asc" },
-  });
+  // The brand picked in the workspace switcher, when the user belongs to it.
+  // Otherwise the first workspace, exactly as before switching existed.
+  const membership =
+    (await findSelectedMembership(userId)) ??
+    (await prisma.workspaceMember.findFirst({
+      where: { userId },
+      include: { workspace: true },
+      orderBy: { createdAt: "asc" },
+    }));
 
   if (membership) {
     return {

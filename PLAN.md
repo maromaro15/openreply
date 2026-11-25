@@ -1,8 +1,7 @@
 # خطة: إضافة قناة Facebook Pages / Messenger إلى OpenReply
 
-> **الحالة:** وافقتَ على كل توصيات القسم 11، والتنفيذ جارٍ مرحلة بمرحلة (القسم 10).
-> أضفتُ في هذا الإصدار أربعة بنود طلبتها: نظام الوكالة، وتنبيهات التحويل لإنسان، وتصنيف سبب التحويل مع التوجيه، والرد من Meta Business Suite.
-> بنود جديدة في القسم 3 (13 إلى 15) تمسّ ملفات مشتركة، وما زالت **تنتظر موافقتك** قبل أي تعديل.
+> **الحالة:** وافقتَ على كل توصيات القسم 11 وعلى البنود 13 إلى 15، والتنفيذ جارٍ مرحلة بمرحلة (القسم 10).
+> البنود الأربعة الإضافية (الوكالة، والتنبيهات، والتصنيف مع التوجيه، والرد من Meta Business Suite) مدمجة في المراحل.
 >
 > **الفرع:** `feature/messenger`، مأخوذ من `main` عند `1eb827b`.
 
@@ -150,15 +149,15 @@
 | `app/(dashboard)/integrations/page.tsx` | 2 |
 | `app/(dashboard)/logs/page.tsx` | 1 |
 
-### 3.2 بنود جديدة تنتظر موافقتك (13 إلى 15)
+### 3.2 بنود نظام الوكالة (13 إلى 15): وافقتَ عليها ونُفّذت في المرحلة 3
 
-ظهرت مع نظام الوكالة. **لن أنفّذ أياً منها قبل موافقتك**، وكل وحدة الوكالة الجديدة تعمل بدونها (التفاصيل في القسم 6.8).
+ظهرت مع نظام الوكالة. البند 15 نُفّذ بقاعدة أدق مما كُتب أولاً: يكفي لفتح الدخول **دعوة سارية، أو عضوية بدور ADMIN أو MEMBER**. ملكية workspace وحدها لا تكفي، لأن كل حساب سجّل يوماً يملك workspace، وإلا لعاد كل حساب قديم إلى الدخول رغم `ALLOWED_EMAILS`.
 
 | # | الملف | التعديل | لماذا | إن رفضت |
 | --- | --- | --- | --- | --- |
 | 13 | `lib/workspace-access.ts` (`getCurrentWorkspaceContext`)، و`lib/auth.ts` (`getCurrentWorkspaceId`)، و`app/(dashboard)/layout.tsx` | تقرأ الدوال الثلاث الـ workspace المختار من cookie، بعد التحقق من أن المستخدم عضو فيه. **بدون cookie يبقى السلوك مطابقاً لليوم**، أي أول عضوية | بهذا تتبع **كل** لوحة التحكم البراند المختار: صفحات Instagram، والإعدادات، وقسم الفريق الحالي، وسجلات DM. الدوال الثلاث مشتركة، ويستعملها 28 موضعاً منها مسارات Instagram، ولهذا أطلب موافقتك | صفحات Facebook والوكالة وحدها تتبع البراند المختار، وصفحات Instagram تبقى على أول workspace |
 | 14 | `components/sidebar.tsx` | استبدال اسم الـ workspace الثابت أسفل الشريط بقائمة منسدلة للتبديل بين البراندات | الوصول السريع | المبدّل يظهر أعلى صفحات Facebook والوكالة فقط |
-| 15 | `lib/auth.ts` (callback `signIn`) | إن كان `ALLOWED_EMAILS` مضبوطاً، يُسمح أيضاً بالدخول لبريد عليه دعوة سارية أو عضوية موجودة | حتى لا تضطر لإضافة بريد كل عضو فريق إلى `.env` | تضيف بريد كل عضو إلى `ALLOWED_EMAILS` يدوياً، أو تتركه فارغاً، فيُسمح لأي شخص بإنشاء workspace فارغ خاص به دون رؤية بيانات غيره |
+| 15 | `lib/auth.ts` (callback `signIn`) | إن كان `ALLOWED_EMAILS` مضبوطاً، يُسمح أيضاً بالدخول لبريد عليه دعوة سارية، أو لمن هو ADMIN أو MEMBER في workspace | حتى لا تضطر لإضافة بريد كل عضو فريق إلى `.env` | تضيف بريد كل عضو إلى `ALLOWED_EMAILS` يدوياً، أو تتركه فارغاً، فيُسمح لأي شخص بإنشاء workspace فارغ خاص به دون رؤية بيانات غيره |
 
 ---
 
@@ -940,8 +939,8 @@ model AlertDelivery {                  // delivery log + idempotency
 **الـ workspace المختار:**
 
 - يُحفظ في cookie اسمه `openreply-workspace`، وهو `httpOnly` و`sameSite=lax` و`secure` في الإنتاج.
-- تضبطه server action بعد التحقق من العضوية.
-- الدالة الجديدة `getActiveWorkspaceContext()` في `lib/agency/workspace.ts` تقرأ الـ cookie وتتحقق من العضوية. إن غابت العضوية أو الـ cookie، ترجع إلى أول عضوية، وهو نفس سلوك اليوم.
+- تضبطه server action (`selectWorkspace` في `lib/agency/actions.ts`) بعد التحقق من العضوية.
+- الدالة `findSelectedMembership()` في `lib/agency/active-workspace.ts` تقرأ الـ cookie وتتحقق من العضوية. تستعملها الدوال الثلاث الحالية (البند 13). إن غابت العضوية أو الـ cookie، ترجع إلى أول عضوية، وهو نفس سلوك اليوم، ودون أي استعلام إضافي.
 - **cookie مزوّر أو لبراند لستَ عضواً فيه يُتجاهل.** الاختبارات تتأكد أن عضواً في A لا يقرأ شيئاً من B.
 
 **صفحة `/agency` (الزبائن والفرق):**
@@ -953,14 +952,18 @@ model AlertDelivery {                  // delivery log + idempotency
   - آخر نشاط.
   - زر «انتقل».
 - **«إضافة براند»:** اسم البراند، ثم إنشاء الـ workspace والانتقال إليه. مسموح لمن هو OWNER في workspace واحد على الأقل، ويمكن حصره بقائمة `AGENCY_OWNER_EMAILS` إن ضُبطت.
-- **إدارة فريق كل براند:**
-  - دعوة ADMIN أو MEMBER برابط يُنسخ، بنفس آلية الدعوات الحالية وبنفس الجداول.
-  - قائمة الأعضاء والدعوات، وإلغاء دعوة، وتغيير دور، وإزالة عضو.
-  - كل ذلك عبر API جديد يستهدف workspace بعينه: `/api/agency/workspaces/[id]/members`. يُرفض إن لم تكن OWNER أو ADMIN فيه.
+- **إدارة فريق كل براند:** زر «الفريق» في بطاقة البراند يفتح البراند، ثم ينتقل إلى **الإعدادات ← الفريق** الموجود أصلاً. بفضل البند 13 صار هذا القسم يعمل على البراند المختار، فالدعوة (رابط يُنسخ) وتغيير الدور والإزالة تستعمل نفس الـ API ونفس الجداول المختبرة. لا حاجة لـ API أعضاء جديد.
+- **التبديل:** من المبدّل أسفل الشريط الجانبي (البند 14)، أو زر «فتح» في صفحة البراندات. بعد التبديل تُحمَّل الصفحة من جديد بالكامل، حتى لا تبقى بيانات البراند السابق في ذاكرة أي شاشة.
 
-**كل الـ APIs الجديدة** (Facebook والبوت والتنبيهات) تستعمل `getActiveWorkspaceContext()` وتقيّد كل استعلام بـ `workspaceId`.
+**كل الـ APIs الجديدة** (Facebook والبوت والتنبيهات) تستعمل `getCurrentWorkspaceContext()`، التي صارت تتبع البراند المختار (البند 13)، وتقيّد كل استعلام بـ `workspaceId`.
 
-**البنود 13 إلى 15 (القسم 3.2)** تجعل باقي لوحة التحكم الحالية تتبع البراند المختار أيضاً. هي **غير ضرورية** لعمل الوكالة في صفحات Facebook، ولن أنفّذها إلا بموافقتك.
+**تحقق في المتصفح (المرحلة 3):** شغّلت التطبيق بقاعدة بيانات تجريبية فيها مالك وكالة بثلاثة براندات وعضو فريق، وأجريت 17 فحصاً بـ Playwright، كلها ناجحة:
+
+- المالك يرى البراندات الثلاثة مع العدادات.
+- «فتح» ينقل كل لوحة التحكم إلى البراند المختار، بما فيها الإعدادات ← الفريق.
+- عضو الفريق يرى براندَه فقط، حتى مع cookie مزوّر لبراند آخر.
+- عضو الفريق لا يستطيع إنشاء براند.
+- الطلبات من موقع آخر تُرفض.
 
 ### 6.9 تنبيهات التحويل لإنسان
 
@@ -1082,7 +1085,7 @@ model AlertDelivery {                  // delivery log + idempotency
 - **التوقيع:** تحقق إلزامي على البايتات الخام بـ `timingSafeEqual`. لا يُعالَج أي طلب غير موقّع، ولا تُخزَّن أحداث الصفحات غير المربوطة.
 - **الأسرار:** توكنات الصفحات وتوكن Telegram مشفّرة AES-256-GCM، ولا تُرجعها أي API للمتصفح (آخر 4 أحرف فقط)، ولا تُكتب في السجلات.
 - **عزل البراندات (الـ tenants):**
-  - كل route يتحقق من الجلسة، ويحدد الـ workspace عبر `getActiveWorkspaceContext()` بعد التحقق من العضوية.
+  - كل route يتحقق من الجلسة، ويحدد الـ workspace عبر `getCurrentWorkspaceContext()` (أو `requireWorkspace()` في `lib/agency/http.ts`)، التي لا تقبل البراند المختار إلا بعد التحقق من العضوية.
   - كل استعلام مقيّد بـ `workspaceId`. حتى الطلب بمعرّف محادثة أو صفحة من براند آخر يرجع 404.
   - الـ cookie وحده لا يمنح أي صلاحية.
 - **الصلاحيات والـ CSRF:** التعديلات لـ OWNER وADMIN، مع فحص `Origin` على كل طلب غير GET، بنفس نمط `lib/zernio/route-handler.ts`.
@@ -1106,8 +1109,10 @@ model AlertDelivery {                  // delivery log + idempotency
 | `echo-classify.test.ts` | 2 | `metadata` لنا، و`app_id` لنا، و`mid` محفوظ، كلها تُعتبر «لنا». غير ذلك يُعتبر إنساناً. والسباق: echo قبل حفظ `mid` |
 | `graph-client.test.ts` | 2 | شكل كل طلب (private reply بزر و`metadata`، رد علني، `subscribed_apps` بالحقول الثلاثة، `debug_token`، `/me/accounts`)، وتصنيف الأخطاء (10900، 10903، 551، 190، 613، 80001، الكود 1) |
 | `keywords.test.ts` | 2 | سعر، السعر، بالسعر، والسعر، شحال السعر، prix، PRIX، price?، أرقام هندية، مطابقة جزئية وكاملة، وعدم المطابقة الخاطئة |
-| `agency-workspace.test.ts` | 3 | الـ cookie لـ workspace أنت عضو فيه، والـ cookie المزوّر يُتجاهل، والرجوع لأول عضوية، والقائمة تحتوي العضويات فقط، وقواعد الإنشاء (`AGENCY_OWNER_EMAILS`)، والدعوة تتطلب OWNER أو ADMIN في الـ workspace المستهدف بالذات |
-| `agency-isolation.db.test.ts` | 3 | على **Postgres حقيقي**: عضو في البراند A لا يقرأ صفحات ولا محادثات ولا قاعدة معرفة ولا تنبيهات البراند B، عبر كل دوال القراءة الجديدة |
+| `agency-workspace.test.ts` | 3 | البنود 13 إلى 15: الـ cookie لـ workspace أنت عضو فيه، والـ cookie المزوّر أو المشوّه يُتجاهل، والسلوك بدون cookie مطابق لليوم بلا استعلام إضافي، وقاعدة الدخول بالدعوة، و`selectWorkspace`، وقواعد إنشاء البراند (`AGENCY_OWNER_EMAILS`) |
+| `agency-api.test.ts` | 3 | قائمة البراندات والعدادات، والإنشاء مع التبديل إليه، ورفض الطلب من موقع آخر، والأدوار، والتحقق من الاسم |
+| `agency-isolation.db.test.ts` | 3 | على **Postgres حقيقي**: عضو في البراند A لا يرى B ولو بـ cookie مزوّر، والعدادات لا تختلط بين البراندات، وقاعدة الدخول بالدعوة. يُوسَّع في المراحل التالية ليشمل الصفحات والمحادثات وقاعدة المعرفة والتنبيهات |
+| `fb-i18n.test.ts` | 3 | الكتالوج العربي للوحدات الجديدة كامل، والإنجليزية في اللغات الأخرى، وأسماء التصنيفات |
 | `page-connect.test.ts` | 4 | token من تطبيق آخر، صلاحيات ناقصة، token ينتهي، token مستخدم إلى صفحات، صفحة مربوطة ببراند آخر، فشل الاشتراك، أدوار المستخدم |
 | `webhook-route.test.ts` | 5 | التحقق GET، الرد 401 و200، إنشاء الـ jobs بـ jobId حتمي، الصفحات غير المربوطة |
 | `comment-worker.test.ts` | 5 | تطابق وعدم تطابق، 7 أيام، أولوية الحملات، job مكرر، UNCONFIRMED بلا إعادة، rate limit مع الإيقاف والإعادة، fallback للنص، استقلال الرد العلني، إنشاء المحادثة بالـ PSID |
@@ -1148,9 +1153,9 @@ npm run build                                          # في المراحل ا�
 | المرحلة | المحتوى | الاختبارات |
 | --- | --- | --- |
 | **0** ✅ | الفرع والخطة | — |
-| **1** | قاعدة البيانات: كل النماذج (Facebook، قاعدة المعرفة، التنبيهات، التوجيه، الأحداث)، والـ migration، و`prisma generate` | `migration-safety` و`schema.db`، وكل الاختبارات القديمة |
-| **2** | الأساس الصافي: `lib/facebook/env.ts`، و`graph.ts` (عميل Graph مع تصنيف الأخطاء و`metadata`)، و`webhook.ts` (التوقيع، وتحليل feed وmessages والـ echoes، وتمييز الـ echo)، و`keywords.ts` | `webhook-signature` و`webhook-parse` و`echo-classify` و`graph-client` و`keywords` |
-| **3** | الوكالة: `getActiveWorkspaceContext` وserver action للتبديل، وصفحة `/agency` (القائمة والإنشاء والفرق)، والمبدّل أعلى الصفحات الجديدة. **والبنود 13 إلى 15 إن وافقت** | `agency-workspace` و`agency-isolation.db` |
+| **1** ✅ | قاعدة البيانات: كل النماذج (Facebook، قاعدة المعرفة، التنبيهات، التوجيه، الأحداث)، والـ migration، و`prisma generate` | `migration-safety` و`schema.db`، وكل الاختبارات القديمة |
+| **2** ✅ | الأساس الصافي: `lib/facebook/env.ts`، و`graph.ts` (عميل Graph مع تصنيف الأخطاء و`metadata`)، و`webhook.ts` (التوقيع، وتحليل feed وmessages والـ echoes، وتمييز الـ echo)، و`keywords.ts` | `webhook-signature` و`webhook-parse` و`echo-classify` و`graph-client` و`keywords` |
+| **3** ✅ | الوكالة: قراءة البراند المختار، وserver action للتبديل، والبنود 13 إلى 15، وصفحة `/agency` (القائمة والعدادات والإنشاء والفريق)، والمبدّل في الشريط الجانبي، وكتالوج الترجمة للوحدات الجديدة | `agency-workspace` و`agency-api` و`agency-isolation.db` و`fb-i18n`، و17 فحصاً في المتصفح |
 | **4** | ربط الصفحات: التحقق والاشتراك في الحقول الثلاثة، والـ API، وصفحة `/facebook/pages` | `page-connect` |
 | **5** | الـ webhook والطابور والعامل والتعليقات: الـ route، و`facebook-processing`، و`worker/facebook-worker.ts` (مع heartbeat وفحص يومي)، والرد الخاص والعلني، وواجهة الحملات وسجل التعليقات | `webhook-route` و`comment-worker` و`rate-limit-namespace` |
 | **6** | الرسائل والـ echoes وصندوق Messenger: الحفظ، والنافذة، ومعالجة `message_echoes`، وواجهة `/facebook/inbox` بشارات التصنيف وفلاترها، ورد الإنسان، والتولّي والإرجاع | `message-worker` و`inbox-api` |
@@ -1179,7 +1184,7 @@ npm run build                                          # في المراحل ا�
 | 7 | User token | مقبول كتسهيل، ويبقى Page token هو الطريق الأساسي |
 | 8 | الفرع | `feature/messenger` |
 
-**ما زال ينتظر قرارك:** البنود 13 إلى 15 في القسم 3.2.
+**ووافقتَ أيضاً على البنود 13 إلى 15** في القسم 3.2، ونُفّذت في المرحلة 3.
 
 ---
 
@@ -1216,15 +1221,15 @@ prisma/migrations/20261125120000_facebook_messenger/migration.sql
 lib/facebook/
   env.ts  graph.ts  webhook.ts  echoes.ts  keywords.ts  queue.ts  pages.ts
   comments.ts  messages.ts  bot-reply.ts  window.ts  inbox.ts  health.ts  api.ts
-  i18n/index.ts  i18n/ar.json
-lib/agency/    workspace.ts  actions.ts  members.ts
+  i18n/index.ts  i18n/ar.json  i18n/client.ts  i18n/server.ts
+lib/agency/    active-workspace.ts  actions.ts  workspaces.ts  sign-in.ts  http.ts
+lib/handoff/   categories.ts
 lib/bot/       knowledge.ts  prompt.ts  guard.ts  classify.ts  answer.ts
 lib/alerts/    categories.ts  routing.ts  message.ts  telegram.ts  email.ts  dispatch.ts
 lib/ai/        gemini.ts  transcribe.ts
 lib/i18n/ar.json
 worker/facebook-worker.ts
 app/api/agency/workspaces/route.ts
-app/api/agency/workspaces/[id]/members/route.ts
 app/api/facebook/webhook/route.ts
 app/api/facebook/health/route.ts
 app/api/facebook/pages/route.ts

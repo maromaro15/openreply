@@ -7,6 +7,9 @@
  */
 
 import LanguageSwitcher from "@/components/language-switcher";
+import WorkspaceSwitcher from "@/components/agency/workspace-switcher";
+import type { FbMessageKey } from "@/lib/facebook/i18n";
+import { useFbI18n } from "@/lib/facebook/i18n/client";
 import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,6 +27,12 @@ const navItems = [
   { label: "Diagnostics", href: "/diagnostics" },
 ] as const;
 
+// Screens of the agency and Facebook modules. Their copy lives in
+// lib/facebook/i18n, so the existing catalogs need no new keys.
+const moduleNavSections: { title: FbMessageKey; items: { label: FbMessageKey; href: string }[] }[] = [
+  { title: "Agency", items: [{ label: "Brands", href: "/agency" }] },
+];
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -36,6 +45,7 @@ export default function Sidebar({
   workspaceName,
 }: SidebarProps) {
   const { t } = useI18n();
+  const { t: tf } = useFbI18n();
   const pathname = usePathname();
 
   return (
@@ -90,11 +100,41 @@ export default function Sidebar({
               </Link>
             );
           })}
+
+          {moduleNavSections.map((section) => (
+            <div key={section.title} className="mt-4 space-y-1 border-t border-border pt-4">
+              <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                {tf(section.title)}
+              </p>
+              {section.items.map((item) => {
+                const isActive =
+                  pathname === item.href || pathname.startsWith(item.href + "/");
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`
+                      block px-3 py-2.5 rounded text-sm
+                      ${
+                        isActive
+                          ? "bg-surface-hover text-foreground font-medium"
+                          : "text-muted hover:text-foreground hover:bg-surface-hover"
+                      }
+                    `}
+                  >
+                    {tf(item.label)}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="px-5 py-4 border-t border-border">
           <div className="mb-4"><LanguageSwitcher /></div>
-          <p className="text-sm text-foreground truncate">{workspaceName}</p>
+          <WorkspaceSwitcher currentName={workspaceName} />
           <p className="text-xs text-muted">{t("Self-hosted")}</p>
           <a
             href={zernioLink({ placement: "sidebar" })}
