@@ -179,6 +179,7 @@ describe("GET /api/facebook/conversations", () => {
     expect(body.data.counts).toEqual({
       needsHuman: 4,
       byCategory: {
+        ORDER_READY: 0,
         WHOLESALE_ORDER: 1,
         CUSTOM_ORDER: 0,
         COMPLAINT: 3,

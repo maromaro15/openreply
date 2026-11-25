@@ -8,11 +8,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BotTester from "@/components/facebook/bot-tester";
+import PersonaForm from "@/components/facebook/persona-form";
 import { translateReason, type FbI18n, type FbStaticKey } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 
 type Kind = "PRODUCT" | "DELIVERY" | "FAQ" | "RULE" | "INFO";
-type Tab = "settings" | Kind | "test";
+type Tab = "settings" | "persona" | Kind | "test";
 
 type Entry = {
   id: string;
@@ -425,6 +426,7 @@ export default function KnowledgePage() {
 
   const tabs: { value: Tab; label: string }[] = [
     { value: "settings", label: t("Settings") },
+    { value: "persona", label: t("Persona and playbook") },
     ...KINDS.map((kind) => ({
       value: kind as Tab,
       label: `${t(FIELDS[kind].tab)} (${entries?.filter((entry) => entry.kind === kind).length ?? 0})`,
@@ -477,6 +479,8 @@ export default function KnowledgePage() {
           onSaved={(saved) => setSettings((current) => current && { ...current, settings: saved })}
           t={t}
         />
+      ) : tab === "persona" ? (
+        <PersonaForm />
       ) : tab === "test" ? (
         <BotTester botEnabled={settings.settings.enabled} aiConfigured={settings.ai.configured} />
       ) : (

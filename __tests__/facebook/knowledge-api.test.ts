@@ -57,7 +57,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   as("ADMIN");
   db.botSettings.findUnique.mockResolvedValue(null);
-  db.botSettings.upsert.mockImplementation(async ({ create }: { create: Record<string, unknown> }) => create);
+  // The row as the database returns it, with phase 11's defaults.
+  db.botSettings.upsert.mockImplementation(async ({ create }: { create: Record<string, unknown> }) => ({
+    personaName: null,
+    personaStyle: null,
+    dialect: null,
+    goal: "SELL",
+    goalNotes: null,
+    playbook: null,
+    orderFields: ["WILAYA", "COLOUR", "QUANTITY", "NAME", "PHONE"],
+    ...create,
+  }));
   db.knowledgeEntry.findMany.mockResolvedValue([
     { id: "k2", ...ENTRY, kind: "FAQ", title: "Paiement ?", content: "À la livraison", price: null, sortOrder: 0, createdAt: new Date() },
     { id: "k1", ...ENTRY, sortOrder: 0, createdAt: new Date() },
@@ -193,6 +203,12 @@ describe("/api/bot/test", () => {
       decision: { kind: "reply", text: "السعر 4500 DA" },
       handoffMessage: "نرجعولك",
       error: null,
+      // The model said nothing of the customer's state or order here.
+      customerState: null,
+      order: null,
+      orderLines: [],
+      orderReady: null,
+      attempts: 1,
     });
     const prompt = ai.generateJson.mock.calls[0][0];
     expect(prompt.systemInstruction).toContain("Robe Kabyle | Price: 4500 DA");

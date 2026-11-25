@@ -602,6 +602,19 @@ enum HandoffCategory {
   NOT_IN_KB
   AUDIO_FAILED
   OTHER
+  /// The bot collected every detail of an order: a person confirms it (phase 11).
+  ORDER_READY
+}
+
+/// The customer's state, as the model reads it in each of its answers (phase 11).
+enum CustomerState {
+  NEUTRAL
+  PRICE_ONLY
+  HESITANT
+  READY_TO_BUY
+  ANGRY
+  WHOLESALE
+  CUSTOM_ORDER
 }
 
 enum FacebookConversationMode {
@@ -644,6 +657,10 @@ model FacebookConversation {
   unreadCount      Int                      @default(0)
   /// Catalog products the conversation is about (named, from the campaign, recognised in a photo).
   focusProductIds  String[]                 @default([])
+  /// The customer's state at the bot's last answer.
+  customerState    CustomerState?
+  /// The order details collected so far (lib/bot/order.ts), until a person takes over.
+  orderDraft       Json?
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
 
@@ -713,6 +730,8 @@ model FacebookMessage {
   error            String?
   /// The dashboard user who sent a HUMAN reply from the OpenReply inbox.
   sentByUserId     String?
+  /// On a customer's message the bot answered: the customer's state the model read.
+  customerState    CustomerState?
   sentAt           DateTime                  @default(now())
   createdAt        DateTime                  @default(now())
 
@@ -770,16 +789,45 @@ model FacebookWebhookEvent {
 // ─── Bot knowledge base (per workspace, not tied to a channel) ──────────────
 
 model BotSettings {
-  workspaceId    String   @id
-  enabled        Boolean  @default(false)
+  workspaceId    String       @id
+  enabled        Boolean      @default(false)
   businessName   String?
   /// Tone, dialect and extra rules from the workspace.
   instructions   String?
-  handoffMessage String   @default("نرجعولك")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  handoffMessage String       @default("نرجعولك")
+  /// Phase 11: the bot's persona, goal and sales playbook (lib/bot/persona.ts).
+  personaName    String?
+  personaStyle   String?
+  /// null: the customer's own dialect.
+  dialect        String?
+  goal           BotGoal      @default(SELL)
+  goalNotes      String?
+  /// The order details collected before ORDER_READY (lib/bot/order.ts).
+  orderFields    OrderField[] @default([WILAYA, COLOUR, QUANTITY, NAME, PHONE])
+  /// null: the default playbook.
+  playbook       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+/// What the bot aims for with the brand's customers.
+enum BotGoal {
+  SELL
+  COLLECT_ORDER
+  COLLECT_INFO
+  ANSWER_ONLY
+}
+
+/// An order detail the bot can collect.
+enum OrderField {
+  WILAYA
+  COLOUR
+  QUANTITY
+  NAME
+  PHONE
+  ADDRESS
 }
 
 enum KnowledgeEntryKind {

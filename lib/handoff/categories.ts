@@ -6,6 +6,7 @@
 import type { HandoffCategory } from "@/app/generated/prisma/client";
 
 export const HANDOFF_CATEGORIES = [
+  "ORDER_READY",
   "WHOLESALE_ORDER",
   "CUSTOM_ORDER",
   "COMPLAINT",
@@ -20,6 +21,7 @@ export function isHandoffCategory(value: unknown): value is HandoffCategory {
 
 /** English source labels; lib/facebook/i18n translates them. */
 export const HANDOFF_CATEGORY_LABELS = {
+  ORDER_READY: "Order ready to confirm",
   WHOLESALE_ORDER: "Wholesale order",
   CUSTOM_ORDER: "Custom order",
   COMPLAINT: "Complaint",
@@ -30,6 +32,7 @@ export const HANDOFF_CATEGORY_LABELS = {
 
 /** Badge colours, as Tailwind classes on the existing palette. */
 export const HANDOFF_CATEGORY_BADGE: Record<HandoffCategory, string> = {
+  ORDER_READY: "bg-success/15 text-success font-semibold",
   WHOLESALE_ORDER: "bg-success/10 text-success",
   CUSTOM_ORDER: "bg-accent/10 text-accent",
   COMPLAINT: "bg-error/10 text-error",

@@ -2,8 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { jsonError, requireWorkspace } from "@/lib/agency/http";
 import { answerCustomer } from "@/lib/bot/answer";
+import { SYSTEM_REASONS } from "@/lib/bot/classify";
 import { getBotMaxFullCards } from "@/lib/ai/env";
 import { getBotSettings, listKnowledge } from "@/lib/bot/knowledge";
+import { mergeOrder, orderSummary, parseOrderDraft } from "@/lib/bot/order";
+import { goalCollectsOrder } from "@/lib/bot/persona";
+import { isOrderReady } from "@/lib/bot/persona-store";
 import { loadCatalogForBot } from "@/lib/catalog/bot";
 import {
   buildCatalogSection,
@@ -21,12 +25,15 @@ const bodySchema = z.object({
     .array(z.object({ from: z.enum(["customer", "page"]), text: z.string().trim().min(1).max(2000) }))
     .max(20)
     .default([]),
+  /** The order details collected so far in this test, as this route returned them. */
+  order: z.unknown().optional(),
 });
 
 /**
- * "Try the bot": the answer the bot would give with the saved settings and
- * knowledge base. Nothing is sent on Messenger, nothing is stored, and no
- * alert goes out.
+ * "Try the bot": the answer the bot would give with the saved settings,
+ * persona and knowledge base, the customer's state it reads, and the order
+ * details it collects. Nothing is sent on Messenger, nothing is stored, and
+ * no alert goes out.
  */
 export async function POST(request: NextRequest) {
   const context = await requireWorkspace(request, "MEMBER");
@@ -43,6 +50,8 @@ export async function POST(request: NextRequest) {
   const texts = [...parsed.data.history.map((message) => message.text), parsed.data.message];
   const mentioned = mentionedProductIds(catalog.products, texts);
   const cards = selectCardProducts(catalog.products, { mentionedIds: mentioned }, getBotMaxFullCards());
+  // Whatever the browser sends back is checked again, like a stored draft.
+  const previousDraft = parseOrderDraft(parsed.data.order ?? null);
   const answer = await answerCustomer({
     businessName: settings.businessName,
     pageName: context.workspace.name,
@@ -55,14 +64,36 @@ export async function POST(request: NextRequest) {
     ],
     catalogSection: buildCatalogSection(catalog.products, cards, catalog.attributes),
     catalogReference: catalogReferenceTexts(catalog.products, cards, catalog.attributes),
+    persona: settings.persona,
+    order: { fields: settings.orderFields, draft: previousDraft },
   });
+
+  const collects = goalCollectsOrder(settings.persona.goal);
+  const order =
+    collects && answer.order
+      ? parseOrderDraft(mergeOrder(previousDraft, answer.order, { products: catalog.products, focusIds: mentioned }))
+      : previousDraft;
+  const orderReady = isOrderReady(settings, answer.customerState, order);
+  const readyReason =
+    collects && settings.orderFields.length > 0 ? SYSTEM_REASONS.orderReady : SYSTEM_REASONS.readyToBuy;
+  // As in a conversation: a complete order outranks a refused reply.
+  const decision =
+    orderReady && answer.decision.kind === "handoff" && answer.decision.source !== "model"
+      ? { kind: "handoff" as const, category: "ORDER_READY" as const, reason: readyReason, source: "system" as const }
+      : answer.decision;
 
   return NextResponse.json({
     success: true,
     data: {
-      decision: answer.decision,
+      decision,
       handoffMessage: settings.handoffMessage,
       error: answer.error,
+      customerState: answer.customerState,
+      /** Kept by the browser and sent back with the next message. */
+      order,
+      orderLines: order ? orderSummary(order, settings.orderFields).map(({ field, value }) => ({ field, value })) : [],
+      orderReady: orderReady ? { reason: readyReason } : null,
+      attempts: answer.attempts,
     },
   });
 }

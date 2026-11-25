@@ -10,6 +10,7 @@
 import { randomUUID } from "node:crypto";
 import type { Job } from "bullmq";
 import type { AlertDelivery, AlertRecipient } from "@/app/generated/prisma/client";
+import { DEFAULT_ORDER_FIELDS, orderSummary, parseOrderDraft } from "@/lib/bot/order";
 import { prisma } from "@/lib/db/client";
 import { getBaseUrl } from "@/lib/env";
 import { isUniqueViolation } from "@/lib/facebook/conversations";
@@ -117,12 +118,16 @@ async function handoffContent(delivery: AlertDelivery): Promise<AlertContent> {
       : null,
     prisma.workspace.findUnique({ where: { id: delivery.workspaceId }, select: { name: true } }),
   ]);
-  const last = conversation
-    ? await prisma.facebookMessage.findFirst({
-        where: { conversationId: conversation.id, direction: "INBOUND" },
-        orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
-      })
-    : null;
+  const draft = parseOrderDraft(conversation?.orderDraft ?? null);
+  const [last, settings] = await Promise.all([
+    conversation
+      ? prisma.facebookMessage.findFirst({
+          where: { conversationId: conversation.id, direction: "INBOUND" },
+          orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
+        })
+      : null,
+    draft ? prisma.botSettings.findUnique({ where: { workspaceId: delivery.workspaceId }, select: { orderFields: true } }) : null,
+  ]);
   return {
     brandName: workspace?.name ?? "",
     pageName: conversation?.page.name ?? "",
@@ -133,6 +138,9 @@ async function handoffContent(delivery: AlertDelivery): Promise<AlertContent> {
       ? { text: last.text, transcript: last.transcript, attachmentType: last.attachmentType }
       : null,
     link: inboxLink(getBaseUrl(), delivery.workspaceId, delivery.conversationId ?? ""),
+    order: draft
+      ? orderSummary(draft, settings?.orderFields ?? [...DEFAULT_ORDER_FIELDS]).map(({ field, value }) => ({ field, value }))
+      : null,
   };
 }
 

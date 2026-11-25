@@ -125,7 +125,21 @@ beforeEach(() => {
     lastInboundAt: new Date("2026-11-25T11:59:50Z"),
     focusProductIds: [] as string[],
   };
-  s.settings = { workspaceId: "ws_a", enabled: true, businessName: "Maison Lina", instructions: null, handoffMessage: "نرجعولك" };
+  s.settings = {
+    workspaceId: "ws_a",
+    enabled: true,
+    businessName: "Maison Lina",
+    instructions: null,
+    handoffMessage: "نرجعولك",
+    // A row as the database gives it, with phase 11's defaults.
+    personaName: null,
+    personaStyle: null,
+    dialect: null,
+    goal: "SELL",
+    goalNotes: null,
+    playbook: null,
+    orderFields: ["WILAYA", "COLOUR", "QUANTITY", "NAME", "PHONE"],
+  };
   s.latestMid = "m_in_2";
   s.claimed = null;
   s.lastOutbound = null;
@@ -557,5 +571,100 @@ describe("the product catalog", () => {
     await processBotReplyJob(job());
     expect(instruction()).not.toContain("## PRODUCT CATALOG");
     expect(focusSaved()).toEqual([]);
+  });
+});
+
+describe("the customer's state and the order (phase 11)", () => {
+  const emptyOrder = { product: "", colour: "", quantity: "", wilaya: "", name: "", phone: "", address: "" };
+  const says = (fields: Record<string, unknown>) =>
+    modelSays({
+      customer_state: "NEUTRAL",
+      handoff: false,
+      category: "NONE",
+      reason: "",
+      reply: "",
+      ...fields,
+      order: { ...emptyOrder, ...((fields.order as object) ?? {}) },
+    });
+  const savedDraft = () =>
+    db.facebookConversation.update.mock.calls
+      .map(([args]) => (args as { data: { orderDraft?: unknown } }).data)
+      .find((data) => "orderDraft" in data)?.orderDraft;
+  const expectHandoff = (category: string, reason: string) =>
+    expect(db.facebookConversation.updateMany).toHaveBeenCalledWith({
+      where: { id: "conv_1", mode: "BOT" },
+      data: expect.objectContaining({ mode: "HUMAN", needsHuman: true, handoffCategory: category, handoffReason: reason }),
+    });
+
+  it("records the customer's state on the message it answered and on the conversation", async () => {
+    says({ customer_state: "HESITANT", reply: "واش اللي شاغلك فيها؟" });
+    await expect(processBotReplyJob(job())).resolves.toBe("replied");
+    expect(db.facebookMessage.updateMany).toHaveBeenCalledWith({
+      where: { conversationId: "conv_1", mid: "m_in_2", direction: "INBOUND" },
+      data: { customerState: "HESITANT" },
+    });
+    expect(db.facebookConversation.update).toHaveBeenCalledWith({
+      where: { id: "conv_1" },
+      data: { customerState: "HESITANT" },
+    });
+  });
+
+  it("merges the order details the customer gives, and keeps asking while some are missing", async () => {
+    says({ customer_state: "READY_TO_BUY", reply: "مليح، واش هو اسمك ورقم الهاتف؟", order: { wilaya: "wahran", quantity: "زوج" } });
+    await expect(processBotReplyJob(job())).resolves.toBe("replied");
+    expect(savedDraft()).toMatchObject({ values: { WILAYA: "31 - Oran", QUANTITY: "2" } });
+    expect(db.facebookConversation.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ handoffCategory: "ORDER_READY" }) })
+    );
+  });
+
+  it("shows the persona and the order so far to the model", async () => {
+    s.settings = { ...s.settings, personaName: "ليلى من فريق Maison Lina" };
+    s.conversation.orderDraft = { productId: null, productName: null, variantCode: null, values: { WILAYA: "31 - Oran" }, problems: {} };
+    says({ reply: "شحال من حبة؟" });
+    await processBotReplyJob(job());
+    const instruction = ai.generateJson.mock.calls[0][0].systemInstruction as string;
+    expect(instruction).toContain("Your name: ليلى من فريق Maison Lina");
+    expect(instruction).toContain("- Wilaya: «31 - Oran»");
+    expect(instruction).toContain("- Phone number: missing");
+  });
+
+  it("hands a complete order to a person after the reply thanked the customer, without a second message", async () => {
+    s.settings = { ...s.settings, orderFields: ["WILAYA", "PHONE"] };
+    says({ customer_state: "READY_TO_BUY", reply: "يعطيك الصحة، نتصلو بيك باش نأكدو", order: { wilaya: "16", phone: "0550 12 34 56" } });
+    await expect(processBotReplyJob(job())).resolves.toBe("order_ready");
+    expect(savedDraft()).toMatchObject({ values: { WILAYA: "16 - Alger", PHONE: "0550123456" } });
+    expectHandoff("ORDER_READY", SYSTEM_REASONS.orderReady);
+    expect(db.facebookConversationEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ type: "HANDOFF", category: "ORDER_READY", reason: SYSTEM_REASONS.orderReady }),
+      select: { id: true },
+    });
+    expect(graph.sendMessage).toHaveBeenCalledTimes(1);
+    expect(graph.sendMessage.mock.calls[0][2]).toMatchObject({ text: "يعطيك الصحة، نتصلو بيك باش نأكدو" });
+  });
+
+  it("with «answer only», collects nothing and hands a customer ready to buy to a person", async () => {
+    s.settings = { ...s.settings, goal: "ANSWER_ONLY" };
+    says({ customer_state: "READY_TO_BUY", reply: "واحد من الفريق يتصل بيك باش يأكد", order: { wilaya: "Oran" } });
+    await expect(processBotReplyJob(job())).resolves.toBe("order_ready");
+    expect(savedDraft()).toBeUndefined();
+    expectHandoff("ORDER_READY", SYSTEM_REASONS.readyToBuy);
+  });
+
+  it("a complete order outranks a refused reply; the model's own handoff keeps its category", async () => {
+    s.settings = { ...s.settings, orderFields: ["WILAYA"] };
+    says({ customer_state: "READY_TO_BUY", reply: "عندك تخفيض خاص بيك", order: { wilaya: "Oran" } });
+    await expect(processBotReplyJob(job())).resolves.toBe("handed_off");
+    expectHandoff("ORDER_READY", SYSTEM_REASONS.orderReady);
+    // The reply was refused: the customer gets the handoff message instead.
+    expect(graph.sendMessage.mock.calls[0][2]).toMatchObject({ text: "نرجعولك" });
+
+    vi.clearAllMocks();
+    db.$transaction.mockImplementation(async (fn: (tx: typeof db) => unknown) => fn(db));
+    db.facebookConversation.updateMany.mockResolvedValue({ count: 1 });
+    db.facebookConversationEvent.create.mockResolvedValue({ id: "evt_2" });
+    says({ handoff: true, category: "COMPLAINT", reason: "الكولي وصل مكسور", customer_state: "ANGRY", order: { wilaya: "Oran" } });
+    await expect(processBotReplyJob(job())).resolves.toBe("handed_off");
+    expectHandoff("COMPLAINT", "الكولي وصل مكسور");
   });
 });

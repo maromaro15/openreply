@@ -15,13 +15,16 @@
  * goes out once and the team is alerted.
  */
 import type { Job } from "bullmq";
-import type { FacebookConversation, FacebookMessage, FacebookPage } from "@/app/generated/prisma/client";
+import { Prisma, type FacebookConversation, type FacebookMessage, type FacebookPage } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
 import { getBotHistoryMessages, getBotMaxFullCards } from "@/lib/ai/env";
 import { enqueueHandoffAlerts } from "@/lib/alerts/dispatch";
 import { answerCustomer } from "@/lib/bot/answer";
 import { SYSTEM_REASONS, type BotDecision } from "@/lib/bot/classify";
 import { getBotSettings, listKnowledge, type BotSettingsView } from "@/lib/bot/knowledge";
+import { mergeOrder, parseOrderDraft, type OrderDraft } from "@/lib/bot/order";
+import { goalCollectsOrder, type CustomerStateValue } from "@/lib/bot/persona";
+import { isOrderReady } from "@/lib/bot/persona-store";
 import { loadCatalogForBot, rememberFocus } from "@/lib/catalog/bot";
 import {
   buildCatalogSection,
@@ -59,6 +62,7 @@ export type BotReplyOutcome =
   | "sticker_only"
   | "waiting_transcript"
   | "replied"
+  | "order_ready"
   | "handed_off"
   | "unconfirmed"
   | "failed";
@@ -217,6 +221,32 @@ async function handOff(
   return "handed_off";
 }
 
+/**
+ * What the model read of the customer, kept whatever happens next: their
+ * state on the message it answered and on the conversation (the inbox
+ * badge), and the order details collected so far.
+ */
+async function recordCustomer(
+  conversation: Conversation,
+  triggerMid: string,
+  state: CustomerStateValue | null,
+  draft: OrderDraft | null,
+  previousDraft: OrderDraft | null
+): Promise<void> {
+  const data: Prisma.FacebookConversationUpdateInput = {};
+  if (state && state !== conversation.customerState) data.customerState = state;
+  if (JSON.stringify(draft) !== JSON.stringify(previousDraft)) {
+    data.orderDraft = draft ? (draft as unknown as Prisma.InputJsonValue) : Prisma.DbNull;
+  }
+  if (Object.keys(data).length > 0) await prisma.facebookConversation.update({ where: { id: conversation.id }, data });
+  if (state) {
+    await prisma.facebookMessage.updateMany({
+      where: { conversationId: conversation.id, mid: triggerMid, direction: "INBOUND" },
+      data: { customerState: state },
+    });
+  }
+}
+
 export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise<BotReplyOutcome> {
   const { conversationId, triggerMid, facebookPageId } = job.data;
   const conversation = await prisma.facebookConversation.findUnique({
@@ -308,6 +338,7 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     getBotMaxFullCards()
   );
 
+  const previousDraft = parseOrderDraft(conversation.orderDraft);
   const answer = await answerCustomer({
     businessName: settings.businessName,
     pageName: page.name,
@@ -319,9 +350,31 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     history: messages,
     catalogSection: buildCatalogSection(catalog.products, cards, catalog.attributes),
     catalogReference: catalogReferenceTexts(catalog.products, cards, catalog.attributes),
+    persona: settings.persona,
+    order: { fields: settings.orderFields, draft: previousDraft },
   });
   if (answer.error) console.warn(`[Facebook bot] ${conversationId}: ${answer.error}`);
-  if (answer.decision.kind === "handoff") return handOff(conversation, triggerMid, answer.decision, settings);
+
+  // The order details the customer gave, merged and checked by the code:
+  // the model only reports them.
+  const draft =
+    goalCollectsOrder(settings.persona.goal) && answer.order
+      ? // An order with nothing in it yet is no order: nothing is stored.
+        parseOrderDraft(mergeOrder(previousDraft, answer.order, { products: catalog.products, focusIds: focus }))
+      : previousDraft;
+  await recordCustomer(conversation, triggerMid, answer.customerState, draft, previousDraft);
+  const orderReady = isOrderReady(settings, answer.customerState, draft);
+  const readyReason = goalCollectsOrder(settings.persona.goal) && settings.orderFields.length > 0
+    ? SYSTEM_REASONS.orderReady
+    : SYSTEM_REASONS.readyToBuy;
+  const orderReadyHandoff = { kind: "handoff", category: "ORDER_READY", reason: readyReason, source: "system" } as const;
+
+  if (answer.decision.kind === "handoff") {
+    // A complete order outranks a refused reply or a failure: a person
+    // confirms it. The model's own reasons (a complaint, wholesale...) stay.
+    const decision = orderReady && answer.decision.source !== "model" ? orderReadyHandoff : answer.decision;
+    return handOff(conversation, triggerMid, decision, settings);
+  }
 
   // The model took a few seconds: is the conversation still the bot's?
   const fresh = await prisma.facebookConversation.findUnique({
@@ -332,13 +385,19 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
   if (!isBotWindowOpen(fresh.lastInboundAt)) return "window_closed";
 
   const sent = await sendClaimed(conversation, triggerMid, answer.decision.text);
-  if (sent.status === "sent") return "replied";
+  if (sent.status === "sent") {
+    if (!orderReady) return "replied";
+    // The reply thanked the customer: the team is told, the customer is not again.
+    await handOff(conversation, triggerMid, orderReadyHandoff, settings, { tellCustomer: false });
+    return "order_ready";
+  }
   if (sent.status === "duplicate") return "duplicate";
 
   const error = sent.error;
   if (error.kind === "ambiguous") {
     // It may have been delivered: never sent a second time.
     await settle(sent.rowId, error);
+    if (orderReady) await handOff(conversation, triggerMid, orderReadyHandoff, settings, { tellCustomer: false });
     return "unconfirmed";
   }
   if (error.kind === "unreachable" || error.kind === "rate_limit") {
@@ -348,7 +407,9 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     return handOff(
       conversation,
       triggerMid,
-      { kind: "handoff", category: "OTHER", reason: SYSTEM_REASONS.facebookUnreachable, source: "system" },
+      orderReady
+        ? orderReadyHandoff
+        : { kind: "handoff", category: "OTHER", reason: SYSTEM_REASONS.facebookUnreachable, source: "system" },
       settings,
       { tellCustomer: false }
     );

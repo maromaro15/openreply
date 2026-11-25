@@ -19,6 +19,8 @@ import type {
 } from "@/lib/facebook/inbox";
 import { HUMAN_REPLY_ERRORS, isHumanReplyError } from "@/lib/facebook/reply-errors";
 import { HANDOFF_CATEGORIES, HANDOFF_CATEGORY_BADGE } from "@/lib/handoff/categories";
+import { CUSTOMER_STATE_BADGE, CUSTOMER_STATE_LABELS, ORDER_LINE_LABELS } from "@/lib/bot/labels";
+import type { CustomerStateValue } from "@/lib/bot/persona";
 import { useI18n } from "@/lib/i18n/provider";
 
 const POLL_MS = 10_000;
@@ -79,6 +81,17 @@ function CategoryBadge({ category, label }: { category: HandoffCategory; label: 
   return (
     <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${HANDOFF_CATEGORY_BADGE[category]}`}>
       {label}
+    </span>
+  );
+}
+
+/** The customer's state at the bot's last answer; nothing when neutral or unknown. */
+function StateBadge({ state, t }: { state: CustomerStateValue | null; t: FbI18n["t"] }) {
+  const label = state ? CUSTOMER_STATE_LABELS[state] : null;
+  if (!state || !label) return null;
+  return (
+    <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${CUSTOMER_STATE_BADGE[state]}`}>
+      {t(label)}
     </span>
   );
 }
@@ -580,6 +593,7 @@ export default function MessengerInbox({
                         {item.handoffCategory && (
                           <CategoryBadge category={item.handoffCategory} label={fb.category(item.handoffCategory)} />
                         )}
+                        <StateBadge state={item.customerState} t={t} />
                         {item.needsHuman && (
                           <span className="inline-flex rounded-full bg-error px-2 py-0.5 text-[11px] font-medium text-white">
                             {t("Need a person")}
@@ -684,6 +698,7 @@ export default function MessengerInbox({
                       label={fb.category(conversation.handoffCategory)}
                     />
                   )}
+                  <StateBadge state={conversation.customerState} t={t} />
                   {conversation.needsHuman && (
                     <span className="inline-flex rounded-full bg-error px-2 py-0.5 text-[11px] font-medium text-white">
                       {t("Need a person")}
@@ -701,6 +716,21 @@ export default function MessengerInbox({
                   <p className="rounded bg-warning/10 px-2 py-1 text-xs text-foreground">
                     {t("Reason: {reason}", { reason: translateReason(t, conversation.handoffReason) })}
                   </p>
+                )}
+                {conversation.order && conversation.order.length > 0 && (
+                  <div className="rounded border border-success/30 bg-success/5 px-2 py-1.5 text-xs">
+                    <p className="font-medium text-foreground">{t("Order details collected by the bot")}</p>
+                    <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+                      {conversation.order.map((line) => (
+                        <div key={line.field} className="contents">
+                          <dt className="text-muted">{t(ORDER_LINE_LABELS[line.field])}</dt>
+                          <dd className="min-w-0 break-words text-foreground" dir="auto">
+                            {line.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
                 )}
                 {actionError && (
                   <p role="alert" className="text-xs text-error">

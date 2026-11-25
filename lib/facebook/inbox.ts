@@ -10,15 +10,16 @@
  * conditional on the state that was read, so two people (or a person and an
  * echo) acting at the same moment record one event, not two.
  */
-import type {
-  FacebookConversation,
-  FacebookConversationEvent,
-  FacebookMessage,
-  HandoffCategory,
+import {
   Prisma,
+  type FacebookConversation,
+  type FacebookConversationEvent,
+  type FacebookMessage,
+  type HandoffCategory,
 } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
 import { HANDOFF_CATEGORIES } from "@/lib/handoff/categories";
+import { DEFAULT_ORDER_FIELDS, orderSummary, parseOrderDraft, type OrderFieldValue } from "@/lib/bot/order";
 import { humanReplyPolicy, standardWindowEndsAt } from "./window";
 
 // ─── Who answers ────────────────────────────────────────────────────────────
@@ -74,6 +75,8 @@ export async function returnConversationToBot(conversationId: string, actorUserI
         handoffCategory: null,
         handoffReason: null,
         handoffAt: null,
+        // A new start: the next order is collected from scratch.
+        orderDraft: Prisma.DbNull,
       },
     });
     if (updated.count !== 1) return false;
@@ -123,6 +126,7 @@ export function serializeConversation(conversation: ListedConversation) {
     lastInboundAt: conversation.lastInboundAt?.toISOString() ?? null,
     windowEndsAt: standardWindowEndsAt(conversation.lastInboundAt)?.toISOString() ?? null,
     unreadCount: conversation.unreadCount,
+    customerState: conversation.customerState,
   };
 }
 
@@ -244,7 +248,8 @@ export async function getConversationThread(workspaceId: string, conversationId:
   const userIds = new Set<string>();
   for (const message of conversation.messages) if (message.sentByUserId) userIds.add(message.sentByUserId);
   for (const event of conversation.events) if (event.actorUserId) userIds.add(event.actorUserId);
-  const [users, campaign] = await Promise.all([
+  const draft = parseOrderDraft(conversation.orderDraft);
+  const [users, campaign, settings] = await Promise.all([
     userIds.size
       ? prisma.user.findMany({ where: { id: { in: [...userIds] } }, select: { id: true, name: true, email: true } })
       : Promise.resolve([] as Person[]),
@@ -254,7 +259,9 @@ export async function getConversationThread(workspaceId: string, conversationId:
           select: { id: true, name: true },
         })
       : Promise.resolve(null),
+    draft ? prisma.botSettings.findUnique({ where: { workspaceId }, select: { orderFields: true } }) : Promise.resolve(null),
   ]);
+  const orderFields: OrderFieldValue[] = settings?.orderFields ?? [...DEFAULT_ORDER_FIELDS];
   const people = new Map(users.map((user) => [user.id, user]));
   const policy = humanReplyPolicy(conversation.lastInboundAt);
 
@@ -266,6 +273,10 @@ export async function getConversationThread(workspaceId: string, conversationId:
       pageBotEnabled: conversation.page.botEnabled,
       modeChangedAt: conversation.modeChangedAt?.toISOString() ?? null,
       sourceCampaign: campaign,
+      // The order details the bot collected, for the person who confirms it.
+      order: draft
+        ? orderSummary(draft, orderFields).map(({ field, value }) => ({ field, value }))
+        : null,
       reply: policy.canReply
         ? { canReply: true as const, humanAgentTag: policy.humanAgentTag, endsAt: policy.endsAt.toISOString() }
         : { canReply: false as const, reason: policy.reason, endsAt: policy.endsAt?.toISOString() ?? null },

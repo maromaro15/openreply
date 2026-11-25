@@ -16,7 +16,11 @@ import { describe, expect, it } from "vitest";
 const MIGRATIONS_DIR = path.join(__dirname, "..", "..", "prisma", "migrations");
 /** The branch's first migration: everything before it existed already. */
 const FIRST_BRANCH_MIGRATION = "20261125120000_facebook_messenger";
-const KNOWN_BRANCH_MIGRATIONS = [FIRST_BRANCH_MIGRATION, "20261126120000_product_catalog"];
+const KNOWN_BRANCH_MIGRATIONS = [
+  FIRST_BRANCH_MIGRATION,
+  "20261126120000_product_catalog",
+  "20261127120000_bot_persona",
+];
 
 const directories = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())

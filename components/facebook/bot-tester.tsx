@@ -7,6 +7,9 @@
  */
 import { useState } from "react";
 import type { HandoffCategory } from "@/app/generated/prisma/client";
+import { CUSTOMER_STATE_BADGE, CUSTOMER_STATE_LABELS, ORDER_LINE_LABELS } from "@/lib/bot/labels";
+import type { OrderFieldValue } from "@/lib/bot/order";
+import type { CustomerStateValue } from "@/lib/bot/persona";
 import { translateReason } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 import { HANDOFF_CATEGORY_BADGE } from "@/lib/handoff/categories";
@@ -15,14 +18,51 @@ type Decision =
   | { kind: "reply"; text: string }
   | { kind: "handoff"; category: HandoffCategory; reason: string; source: string };
 
+type OrderLine = { field: OrderFieldValue | "PRODUCT"; value: string };
+
 type Turn =
   | { id: number; from: "customer"; text: string }
-  | { id: number; from: "bot"; decision: Decision; handoffMessage: string; error: string | null };
+  | {
+      id: number;
+      from: "bot";
+      decision: Decision;
+      handoffMessage: string;
+      error: string | null;
+      customerState: CustomerStateValue | null;
+      orderLines: OrderLine[];
+      orderReady: { reason: string } | null;
+      attempts: number;
+    };
+
+/** What the bot read of the customer under its answer: their state, and the order so far. */
+function CustomerNote({ turn }: { turn: Extract<Turn, { from: "bot" }> }) {
+  const { t } = useFbI18n();
+  const label = turn.customerState ? CUSTOMER_STATE_LABELS[turn.customerState] : null;
+  if (!label && turn.orderLines.length === 0 && turn.attempts < 2) return null;
+  return (
+    <div className="space-y-1 text-[11px] text-muted">
+      {label && turn.customerState && (
+        <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${CUSTOMER_STATE_BADGE[turn.customerState]}`}>
+          {t("Customer: {state}", { state: t(label) })}
+        </span>
+      )}
+      {turn.attempts >= 2 && <p>{t("The guard refused the first reply; the bot was asked to rewrite it once.")}</p>}
+      {turn.orderLines.length > 0 && (
+        <p dir="auto">
+          {t("Order so far:")}{" "}
+          {turn.orderLines.map((line) => `${t(ORDER_LINE_LABELS[line.field])}: ${line.value}`).join(" · ")}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: boolean; aiConfigured: boolean }) {
   const fb = useFbI18n();
   const { t } = fb;
   const [turns, setTurns] = useState<Turn[]>([]);
+  // The order details collected in this test, as the server returned them.
+  const [order, setOrder] = useState<unknown>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,13 +86,14 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
       const response = await fetch("/api/bot/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, history: history.slice(-20) }),
+        body: JSON.stringify({ message, history: history.slice(-20), order }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.success) {
         setError(t("Something went wrong. Please try again."));
         return;
       }
+      setOrder(payload.data.order ?? null);
       setTurns((current) => [
         ...current,
         {
@@ -61,6 +102,10 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
           decision: payload.data.decision,
           handoffMessage: payload.data.handoffMessage,
           error: payload.data.error,
+          customerState: payload.data.customerState ?? null,
+          orderLines: payload.data.orderLines ?? [],
+          orderReady: payload.data.orderReady ?? null,
+          attempts: payload.data.attempts ?? 1,
         },
       ]);
     } catch {
@@ -98,11 +143,20 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
                 </p>
               </div>
             ) : turn.decision.kind === "reply" ? (
-              <div key={turn.id} className="flex justify-end">
+              <div key={turn.id} className="flex flex-col items-end gap-1">
                 <div className="max-w-[80%] rounded-lg bg-accent px-3 py-2 text-sm text-white">
                   <p dir="auto" className="whitespace-pre-wrap">{turn.decision.text}</p>
                   <p className="mt-1 text-[10px] text-white/75">{t("Bot")}</p>
                 </div>
+                <CustomerNote turn={turn} />
+                {turn.orderReady && (
+                  <p className="flex flex-wrap items-center gap-2 rounded border border-success/30 bg-success/5 px-2 py-1 text-xs text-foreground">
+                    {t("Then hands over to a person:")}
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${HANDOFF_CATEGORY_BADGE.ORDER_READY}`}>
+                      {fb.category("ORDER_READY")}
+                    </span>
+                  </p>
+                )}
               </div>
             ) : (
               <div key={turn.id} className="space-y-1.5 rounded border border-warning/40 bg-warning/5 p-3 text-sm">
@@ -117,6 +171,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
                   {t("The customer would get: {message}", { message: turn.handoffMessage })}
                 </p>
                 {turn.error && <p className="break-words text-[11px] text-zinc-500">{turn.error}</p>}
+                <CustomerNote turn={turn} />
               </div>
             )
           )
@@ -160,6 +215,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
           type="button"
           onClick={() => {
             setTurns([]);
+            setOrder(null);
             setError(null);
           }}
           disabled={busy || turns.length === 0}

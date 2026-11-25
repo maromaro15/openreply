@@ -5,7 +5,8 @@
  */
 import { z } from "zod";
 import type { HandoffCategory } from "@/app/generated/prisma/client";
-import { checkReply } from "./guard";
+import { checkReply, type GuardSources } from "./guard";
+import { CUSTOMER_STATES, type CustomerStateValue } from "./persona";
 
 /** What the model may choose. AUDIO_FAILED is set by the code alone. */
 export const MODEL_CATEGORIES = ["WHOLESALE_ORDER", "CUSTOM_ORDER", "COMPLAINT", "NOT_IN_KB", "OTHER", "NONE"] as const;
@@ -21,6 +22,8 @@ export const SYSTEM_REASONS = {
   facebookUnreachable: "The bot could not reach Facebook to answer.",
   tokenInvalid: "The Page's access token is no longer valid.",
   noReason: "The bot did not give a reason.",
+  orderReady: "The customer gave every detail of the order.",
+  readyToBuy: "The customer wants to order.",
 } as const;
 
 export type BotDecision =
@@ -47,7 +50,23 @@ function handoffCategory(value: string): HandoffCategory {
     : "OTHER";
 }
 
-export function decide(output: unknown, referenceTexts: string[]): BotDecision {
+/**
+ * What the model read of the customer, whatever it decided: their state and
+ * the order details they gave. Lenient: an unknown state is null and a
+ * malformed order is ignored, so neither can cost an answer.
+ */
+export function readCustomer(output: unknown): { customerState: CustomerStateValue | null; order: Record<string, unknown> | null } {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return { customerState: null, order: null };
+  const { customer_state: state, order } = output as Record<string, unknown>;
+  return {
+    customerState:
+      typeof state === "string" && (CUSTOMER_STATES as readonly string[]).includes(state) ? (state as CustomerStateValue) : null,
+    order: order && typeof order === "object" && !Array.isArray(order) ? (order as Record<string, unknown>) : null,
+  };
+}
+
+/** `sources`: see guardSources in ./prompt.ts; a plain list is the shop's words only. */
+export function decide(output: unknown, sources: GuardSources | string[]): BotDecision {
   const parsed = modelOutput.safeParse(output);
   if (!parsed.success) {
     return { kind: "handoff", category: "OTHER", reason: SYSTEM_REASONS.invalidAnswer, source: "system" };
@@ -65,7 +84,7 @@ export function decide(output: unknown, referenceTexts: string[]): BotDecision {
     };
   }
 
-  const violation = checkReply(reply, referenceTexts);
+  const violation = checkReply(reply, sources);
   if (violation) {
     return {
       kind: "handoff",

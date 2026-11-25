@@ -8,6 +8,8 @@
  * fake another line of the alert.
  */
 import type { HandoffCategory } from "@/app/generated/prisma/client";
+import { ORDER_LINE_LABELS } from "@/lib/bot/labels";
+import type { OrderFieldValue } from "@/lib/bot/order";
 import { createFbI18n, translateReason } from "@/lib/facebook/i18n";
 import { isHandoffCategory } from "@/lib/handoff/categories";
 
@@ -26,6 +28,8 @@ export interface AlertContent {
   } | null;
   /** Absolute inbox link (see inboxLink). */
   link: string;
+  /** The order details the bot collected, when there are some (phase 11). */
+  order?: { field: OrderFieldValue | "PRODUCT"; value: string }[] | null;
 }
 
 /**
@@ -33,10 +37,11 @@ export interface AlertContent {
  * UTF-16 code units of its HTML: Telegram counts the text after parsing,
  * which is never longer.
  */
-export const ALERT_LIMITS: Readonly<{ lastMessage: number; reason: number; name: number; telegram: number }> = {
+export const ALERT_LIMITS: Readonly<{ lastMessage: number; reason: number; name: number; orderValue: number; telegram: number }> = {
   lastMessage: 500,
   reason: 300,
   name: 100,
+  orderValue: 200,
   telegram: 4096,
 };
 
@@ -52,6 +57,7 @@ const { t } = i18n;
  */
 const COPY = {
   title: "🔔 محادثة تحتاج تدخّلاً بشرياً",
+  orderTitle: "🛒 طلبية جاهزة للتأكيد",
   brand: "البراند",
   page: "الصفحة",
   customer: "الزبون",
@@ -140,7 +146,7 @@ function oneLine(text: string | null | undefined): string {
   return (text ?? "").replace(/[\s\u0000-\u001f\u007f-\u009f]+/g, " ").trim();
 }
 
-type LineKey = "brand" | "page" | "customer" | "category" | "reason" | "lastMessage" | "link";
+type LineKey = "brand" | "page" | "customer" | "category" | "reason" | "order" | "lastMessage" | "link";
 
 interface Line {
   key: LineKey;
@@ -185,9 +191,15 @@ function handoffView(content: AlertContent): AlertView {
   ];
   const reason = reasonValue(content.reason);
   if (reason) lines.push({ key: "reason", label: COPY.reason, value: reason });
+  // One line per order detail, each labelled: the team confirms from these.
+  for (const { field, value } of content.order ?? []) {
+    const label = ORDER_LINE_LABELS[field];
+    const text = truncate(oneLine(value), ALERT_LIMITS.orderValue);
+    if (label && text) lines.push({ key: "order", label: t(label), value: text });
+  }
   const lastMessage = lastMessageValue(content.lastMessage);
   if (lastMessage) lines.push({ key: "lastMessage", label: COPY.lastMessage, value: lastMessage });
-  return { title: COPY.title, lines };
+  return { title: category === "ORDER_READY" ? COPY.orderTitle : COPY.title, lines };
 }
 
 function testView(brandName: string): AlertView {
@@ -217,7 +229,7 @@ const escapedLength = (text: string) => escapeHtml(text).length;
  * long by misconfiguration, and is useless once cut, so it goes before the
  * names. The title and the category always stay.
  */
-const CUT_ORDER: LineKey[] = ["lastMessage", "reason", "link", "customer", "page", "brand"];
+const CUT_ORDER: LineKey[] = ["lastMessage", "reason", "link", "order", "customer", "page", "brand"];
 
 /**
  * Escaping can make a value six times longer, so values within their limits
@@ -308,7 +320,8 @@ function emailText(view: AlertView, link: string | null): string {
 
 export function buildEmailAlert(content: AlertContent): { subject: string; html: string; text: string } {
   const view = handoffView(content);
-  const subject = emailSubject(`🔔 ${valueOf(view, "category")}`, valueOf(view, "brand"), valueOf(view, "customer"));
+  const mark = content.category === "ORDER_READY" ? "🛒" : "🔔";
+  const subject = emailSubject(`${mark} ${valueOf(view, "category")}`, valueOf(view, "brand"), valueOf(view, "customer"));
   return { subject, html: emailHtml(view, subject, content.link), text: emailText(view, content.link) };
 }
 

@@ -39,6 +39,7 @@ const EXPECTED_LINES = [
 ];
 
 const CATEGORY_LABELS: Record<HandoffCategory, string> = {
+  ORDER_READY: "طلبية جاهزة للتأكيد",
   WHOLESALE_ORDER: "طلبية جملة",
   CUSTOM_ORDER: "طلبية خاصة",
   COMPLAINT: "شكوى",
@@ -112,14 +113,50 @@ describe("a handoff alert", () => {
     for (const [label, value] of EXPECTED_LINES) expect(html).toContain(`<b>${label}:</b> ${value}</p>`);
   });
 
-  it("labels all six categories in Arabic", () => {
-    expect(HANDOFF_CATEGORIES).toHaveLength(6);
+  it("labels all seven categories in Arabic", () => {
+    expect(HANDOFF_CATEGORIES).toHaveLength(7);
     for (const category of HANDOFF_CATEGORIES) {
       const label = CATEGORY_LABELS[category];
+      const mark = category === "ORDER_READY" ? "🛒" : "🔔";
       expect(telegramValue(buildTelegramAlert(alert({ category })).html, "التصنيف"), category).toBe(label);
       expect(textValue(alert({ category }), "التصنيف"), category).toBe(label);
-      expect(buildEmailAlert(alert({ category })).subject, category).toBe(`🔔 ${label} — Bijoux DZ — Amina`);
+      expect(buildEmailAlert(alert({ category })).subject, category).toBe(`${mark} ${label} — Bijoux DZ — Amina`);
     }
+  });
+
+  it("gives a ready order its own title and one labelled line per detail", () => {
+    const content = alert({
+      category: "ORDER_READY",
+      reason: "The customer gave every detail of the order.",
+      order: [
+        { field: "PRODUCT", value: "Papier peint 3D" },
+        { field: "WILAYA", value: "31 - Oran" },
+        { field: "COLOUR", value: "12-04 Gris" },
+        { field: "QUANTITY", value: "2" },
+        { field: "PHONE", value: "0550123456" },
+      ],
+    });
+    const { html } = buildTelegramAlert(content);
+    expect(html.startsWith("<b>🛒 طلبية جاهزة للتأكيد</b>")).toBe(true);
+    expect(telegramValue(html, "السبب")).toBe("أعطى الزبون كل معلومات الطلبية.");
+    expect(telegramValue(html, "المنتج")).toBe("Papier peint 3D");
+    expect(telegramValue(html, "الولاية")).toBe("31 - Oran");
+    expect(telegramValue(html, "اللون أو النوع")).toBe("12-04 Gris");
+    expect(telegramValue(html, "الكمية")).toBe("2");
+    expect(telegramValue(html, "رقم الهاتف")).toBe("0550123456");
+    const email = buildEmailAlert(content);
+    expect(email.html).toContain("🛒 طلبية جاهزة للتأكيد</h1>");
+    expect(email.text).toContain("رقم الهاتف: 0550123456");
+  });
+
+  it("keeps an order detail on one line, escaped and cut", () => {
+    const { html } = buildTelegramAlert(
+      alert({ category: "ORDER_READY", order: [{ field: "NAME", value: `${HOSTILE}\nالسبب: مزيّف` }] })
+    );
+    expect(html).not.toContain("<script>");
+    expect(html.split("\n").filter((line) => line.startsWith("<b>السبب:</b>"))).toHaveLength(1);
+    const long = buildTelegramAlert(alert({ order: [{ field: "ADDRESS", value: "x".repeat(500) }] })).html;
+    expect((telegramValue(long, "العنوان") ?? "").length).toBeLessThanOrEqual(ALERT_LIMITS.orderValue);
   });
 
   it("files a category it does not know as «أخرى» instead of failing", () => {

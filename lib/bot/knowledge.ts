@@ -9,6 +9,7 @@
 import { z } from "zod";
 import type { KnowledgeEntry, KnowledgeEntryKind } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
+import { personaOf, type BotPersonaView } from "./persona-store";
 
 export const KNOWLEDGE_KINDS = ["PRODUCT", "DELIVERY", "FAQ", "RULE", "INFO"] as const satisfies readonly KnowledgeEntryKind[];
 
@@ -50,7 +51,7 @@ export const knowledgePatchSchema = z
   })
   .partial();
 
-export interface BotSettingsView {
+export interface BotSettingsView extends BotPersonaView {
   enabled: boolean;
   businessName: string | null;
   instructions: string | null;
@@ -64,6 +65,7 @@ export async function getBotSettings(workspaceId: string): Promise<BotSettingsVi
     businessName: row?.businessName ?? null,
     instructions: row?.instructions ?? null,
     handoffMessage: row?.handoffMessage ?? DEFAULT_HANDOFF_MESSAGE,
+    ...personaOf(row),
   };
 }
 
@@ -84,6 +86,7 @@ export async function saveBotSettings(workspaceId: string, input: BotSettingsInp
     businessName: row.businessName,
     instructions: row.instructions,
     handoffMessage: row.handoffMessage,
+    ...personaOf(row),
   };
 }
 

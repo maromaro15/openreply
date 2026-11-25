@@ -124,10 +124,13 @@ describe("the conversation", () => {
 });
 
 describe("the answer's schema and the guard's references", () => {
-  it("asks for the decision before the reply", () => {
-    expect(BOT_RESPONSE_SCHEMA.propertyOrdering).toEqual(["handoff", "category", "reason", "reply"]);
-    expect(Object.keys(BOT_RESPONSE_SCHEMA.properties)).toEqual(["handoff", "category", "reason", "reply"]);
+  it("asks for the customer's state and the decision before the reply", () => {
+    const order = ["customer_state", "handoff", "category", "reason", "order", "reply"];
+    expect(BOT_RESPONSE_SCHEMA.propertyOrdering).toEqual(order);
+    expect(Object.keys(BOT_RESPONSE_SCHEMA.properties)).toEqual(order);
     expect(BOT_RESPONSE_SCHEMA.properties.category.enum).not.toContain("AUDIO_FAILED");
+    // ORDER_READY is the code's decision, never the model's.
+    expect(BOT_RESPONSE_SCHEMA.properties.category.enum).not.toContain("ORDER_READY");
   });
 
   it("gives the guard everything the bot was allowed to know, and nothing inactive", () => {
