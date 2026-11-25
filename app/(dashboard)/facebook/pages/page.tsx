@@ -84,6 +84,22 @@ export default function FacebookPagesPage() {
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [workerHealthy, setWorkerHealthy] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/facebook/health", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (!cancelled) setWorkerHealthy(Boolean(payload?.data?.worker?.healthy));
+      })
+      .catch(() => {
+        if (!cancelled) setWorkerHealthy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -330,6 +346,14 @@ export default function FacebookPagesPage() {
               {setup.fields.join(", ")}
             </dd>
           </div>
+          {workerHealthy !== null && (
+            <div>
+              <dt className="text-xs text-muted">{t("Facebook worker")}</dt>
+              <dd className={workerHealthy ? "text-success" : "text-warning"}>
+                {workerHealthy ? t("Running") : t("Not running: start the worker-facebook service.")}
+              </dd>
+            </div>
+          )}
           <div>
             <dt className="text-xs text-muted">{t("Permissions")}</dt>
             <dd dir="ltr" className="text-start font-mono text-xs text-foreground">

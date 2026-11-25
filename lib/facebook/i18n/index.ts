@@ -55,5 +55,8 @@ export function moduleTitle(pathname: string): FbStaticKey | null {
   const under = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
   if (under("/agency")) return "Brands";
   if (under("/facebook/pages")) return "Facebook Pages";
+  if (pathname === "/facebook/campaigns/new") return "New campaign";
+  if (pathname.startsWith("/facebook/campaigns/")) return "Edit campaign";
+  if (pathname === "/facebook/campaigns") return "Facebook campaigns";
   return null;
 }

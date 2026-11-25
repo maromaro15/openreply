@@ -30,7 +30,13 @@ const navItems = [
 // Screens of the agency and Facebook modules. Their copy lives in
 // lib/facebook/i18n, so the existing catalogs need no new keys.
 const moduleNavSections: { title: FbStaticKey; items: { label: FbStaticKey; href: string }[] }[] = [
-  { title: "Facebook", items: [{ label: "Pages", href: "/facebook/pages" }] },
+  {
+    title: "Facebook",
+    items: [
+      { label: "Pages", href: "/facebook/pages" },
+      { label: "Campaigns", href: "/facebook/campaigns" },
+    ],
+  },
   { title: "Agency", items: [{ label: "Brands", href: "/agency" }] },
 ];
 

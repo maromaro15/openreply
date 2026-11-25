@@ -271,6 +271,34 @@ describe("errors", () => {
     expect(error.isConfirmedRejection).toBe(false);
   });
 
+  it.each(["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "UND_ERR_CONNECT_TIMEOUT"])(
+    "knows a request that failed with %s never left: safe to retry",
+    async (code) => {
+      fetchMock.mockRejectedValue(Object.assign(new TypeError("fetch failed"), { cause: { code } }));
+      const error = await sendMessage("PAGE_1", PAGE_TOKEN, { psid: "p", text: "x" }).catch((e) => e);
+      expect(error).toMatchObject({ kind: "unreachable" });
+      expect(error.isConfirmedRejection).toBe(true);
+      expect(error.message).toContain(code);
+    }
+  );
+
+  it.each(["ECONNRESET", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_SOCKET"])(
+    "keeps a request that failed with %s ambiguous: it may have reached Meta",
+    async (code) => {
+      fetchMock.mockRejectedValue(Object.assign(new TypeError("fetch failed"), { cause: { code } }));
+      await expect(sendMessage("PAGE_1", PAGE_TOKEN, { psid: "p", text: "x" })).rejects.toMatchObject({
+        kind: "ambiguous",
+      });
+    }
+  );
+
+  it("keeps our own timeout ambiguous", async () => {
+    fetchMock.mockRejectedValue(new DOMException("The operation was aborted due to timeout", "TimeoutError"));
+    await expect(sendMessage("PAGE_1", PAGE_TOKEN, { psid: "p", text: "x" })).rejects.toMatchObject({
+      kind: "ambiguous",
+    });
+  });
+
   it("treats a 2xx without JSON as ambiguous", async () => {
     fetchMock.mockResolvedValue(new Response("<html>ok</html>", { status: 200 }));
     await expect(sendMessage("PAGE_1", PAGE_TOKEN, { psid: "p", text: "x" })).rejects.toMatchObject({

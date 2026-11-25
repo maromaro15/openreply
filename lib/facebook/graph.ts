@@ -29,8 +29,11 @@ export const METADATA_LIMIT = 1000;
  * - outside_window:  the 24-hour messaging window is closed.
  * - template_rejected: the button template was refused; plain text may pass.
  * - invalid_request: any other refusal of the request itself.
- * - ambiguous:       no proof either way (network failure, 5xx, codes 1 and 2).
- *                    A send may have gone through, so it must not be repeated.
+ * - unreachable:     the request never reached Meta (DNS failure, connection
+ *                    refused): nothing was sent, so it is safe to try again.
+ * - ambiguous:       no proof either way (timeout, dropped connection, 5xx,
+ *                    codes 1 and 2). A send may have gone through, so it
+ *                    must not be repeated.
  */
 export type FacebookErrorKind =
   | "rate_limit"
@@ -41,7 +44,35 @@ export type FacebookErrorKind =
   | "outside_window"
   | "template_rejected"
   | "invalid_request"
+  | "unreachable"
   | "ambiguous";
+
+/**
+ * Error codes of a connection that failed before any byte of the request
+ * was sent. Anything else (a timeout, a reset mid-request) may have reached
+ * Meta and stays ambiguous.
+ */
+const NOT_SENT_CODES = new Set([
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "CERT_HAS_EXPIRED",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+]);
+
+/** How a failed fetch is classified: never sent, or maybe sent. */
+export function classifyNetworkError(error: unknown): "unreachable" | "ambiguous" {
+  const cause = (error as { cause?: { code?: unknown; errors?: { code?: unknown }[] } } | null)?.cause;
+  const codes = [cause?.code, ...(cause?.errors ?? []).map((inner) => inner?.code)].filter(
+    (code): code is string => typeof code === "string"
+  );
+  return codes.length > 0 && codes.every((code) => NOT_SENT_CODES.has(code)) ? "unreachable" : "ambiguous";
+}
 
 export class FacebookApiError extends Error {
   constructor(
@@ -145,7 +176,11 @@ export async function graphRequest<T>({
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : "network error";
-    throw new FacebookApiError(`Graph request failed (${url.pathname}): ${reason}`, "ambiguous");
+    const code = (error as { cause?: { code?: unknown } })?.cause?.code;
+    throw new FacebookApiError(
+      `Graph request failed (${url.pathname}): ${reason}${typeof code === "string" ? ` [${code}]` : ""}`,
+      classifyNetworkError(error)
+    );
   }
 
   let data: unknown = null;

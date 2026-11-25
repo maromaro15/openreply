@@ -763,7 +763,8 @@ model AlertDelivery {                  // delivery log + idempotency
   1. `jobId` حتمي في BullMQ.
   2. `UNIQUE (facebookPageId, commentId)` في قاعدة البيانات.
   3. claim ذري عبر `updateMany` بشروط.
-  4. النتيجة الغامضة (انقطاع الشبكة، 5xx، الكود 1 أو 2) تصبح `UNCONFIRMED` **ولا تُعاد آلياً**. إن وصل الـ echo بعدها تصبح `SENT`.
+  4. النتيجة الغامضة (انتهاء المهلة، انقطاع بعد الإرسال، 5xx، الكود 1 أو 2) تصبح `UNCONFIRMED` **ولا تُعاد آلياً**. إن وصل الـ echo بعدها تصبح `SENT`.
+- **فشل قبل وصول الطلب** (DNS، رفض الاتصال، شهادة TLS): لم يُرسل شيء أصلاً، فهذه ليست نتيجة غامضة. تُعاد المحاولة كل 5 دقائق لمدة ساعتين، دون احتساب محاولة. انقطاع شبكة قصير على السيرفر لا يضيّع الرد.
 - **Rate limiting:**
   - `reserveDMSlot("fb:<pageId>", requeueAttempt, slotAt, commentId)` من المحدِّد الحالي دون تعديل.
   - عند الرفض يُعاد الـ job بتأخير.
@@ -1119,7 +1120,9 @@ model AlertDelivery {                  // delivery log + idempotency
 | `pages-api.test.ts` | 4 | الأدوار (العضو يقرأ فقط)، ورفض الطلب من موقع آخر، وتنظيف معرّفات الصفحات، والحذف للمالك فقط، والمنشورات من صفحات البراند فقط |
 | `pages.db.test.ts` | 4 | على **Postgres حقيقي**: صفحة لبراند واحد فقط، والـ token مشفّر ولا يُعاد في القوائم، وبراند لا يعدّل ولا يفصل ولا يحذف صفحة غيره، والحذف يحرّر الصفحة لبراند آخر |
 | `webhook-route.test.ts` | 5 | التحقق GET، الرد 401 و200، إنشاء الـ jobs بـ jobId حتمي، الصفحات غير المربوطة |
-| `comment-worker.test.ts` | 5 | تطابق وعدم تطابق، 7 أيام، أولوية الحملات، job مكرر، UNCONFIRMED بلا إعادة، rate limit مع الإيقاف والإعادة، fallback للنص، استقلال الرد العلني، إنشاء المحادثة بالـ PSID |
+| `comment-worker.test.ts` | 5 | تطابق وعدم تطابق، 7 أيام (مع هامش 10 دقائق)، أولوية الحملات، job مكرر، UNCONFIRMED بلا إعادة، فيسبوك غير قابل للوصول (إعادة ثم فشل بعد ساعتين)، rate limit مع الإيقاف والإعادة، fallback للنص، استقلال الرد العلني، إنشاء المحادثة بالـ PSID، وتجاهل أي job مجهول |
+| `campaigns-api.test.ts` | 5 | التحقق من الحقول (رابط `javascript:` مرفوض)، وصفحة البراند فقط، والأدوار، والإيقاف والحذف داخل البراند، وعدادات النتائج، وفلتر سجل التعليقات |
+| `comments.db.test.ts` | 5 | على **Postgres حقيقي**: إرسال واحد مع jobs مكررة ومتزامنة (4 في نفس اللحظة)، وفتح المحادثة بالـ PSID، وحملات كل براند لا تجيب إلا على صفحاته، والتعليق القديم |
 | `rate-limit-namespace.redis.test.ts` | 5 | على **Redis حقيقي**: مفاتيح `fb:` لا تتداخل مع حسابات Instagram. يُتخطّى بدون `TEST_REDIS_URL` |
 | `message-worker.test.ts` | 6 | حفظ الرسالة مرة واحدة، النافذة، الـ debounce، وضع HUMAN صامت، الملصقات والصور، **echo من إنسان يحوّل إلى HUMAN، وecho لرسالتنا لا يفعل ذلك ويؤكد UNCONFIRMED** |
 | `inbox-api.test.ts` | 6 | عزل الـ workspaces، الأدوار، رفض الإرسال بعد 24 ساعة، التولّي والإرجاع للبوت، **فلتر التصنيف**، رابط `?workspace=` |
@@ -1161,7 +1164,7 @@ npm run build                                          # في المراحل ا�
 | **2** ✅ | الأساس الصافي: `lib/facebook/env.ts`، و`graph.ts` (عميل Graph مع تصنيف الأخطاء و`metadata`)، و`webhook.ts` (التوقيع، وتحليل feed وmessages والـ echoes، وتمييز الـ echo)، و`keywords.ts` | `webhook-signature` و`webhook-parse` و`echo-classify` و`graph-client` و`keywords` |
 | **3** ✅ | الوكالة: قراءة البراند المختار، وserver action للتبديل، والبنود 13 إلى 15، وصفحة `/agency` (القائمة والعدادات والإنشاء والفريق)، والمبدّل في الشريط الجانبي، وكتالوج الترجمة للوحدات الجديدة | `agency-workspace` و`agency-api` و`agency-isolation.db` و`fb-i18n`، و17 فحصاً في المتصفح |
 | **4** ✅ | ربط الصفحات: التحقق والاشتراك في الحقول الثلاثة، والـ API، وصفحة `/facebook/pages` (الربط، وإعداد الـ webhook، وتشغيل البوت وإيقافه، والفصل والحذف) | `page-connect` و`pages-api` و`pages.db`، و16 فحصاً في المتصفح |
-| **5** | الـ webhook والطابور والعامل والتعليقات: الـ route، و`facebook-processing`، و`worker/facebook-worker.ts` (مع heartbeat وفحص يومي)، والرد الخاص والعلني، وواجهة الحملات وسجل التعليقات | `webhook-route` و`comment-worker` و`rate-limit-namespace` |
+| **5** ✅ | الـ webhook والطابور والعامل والتعليقات: الـ route، و`facebook-processing`، و`worker/facebook-worker.ts` (مع heartbeat وفحص يومي)، والرد الخاص والعلني، وواجهة الحملات وسجل التعليقات | `webhook-route` و`comment-worker` و`campaigns-api` و`rate-limit-namespace.redis` و`comments.db`، و14 فحصاً حياً (خادم ويب، وعامل حقيقي، وRedis، وPostgres) |
 | **6** | الرسائل والـ echoes وصندوق Messenger: الحفظ، والنافذة، ومعالجة `message_echoes`، وواجهة `/facebook/inbox` بشارات التصنيف وفلاترها، ورد الإنسان، والتولّي والإرجاع | `message-worker` و`inbox-api` |
 | **7** | قاعدة المعرفة والبوت والتصنيف: الـ API والواجهة، وعميل Gemini، والـ prompt، والحارس، والتصنيف، وjob الرد، وأحداث `HANDOFF`، و«جرّب البوت» | `knowledge-api` و`gemini-client` و`bot-prompt` و`bot-guard` و`bot-classify` و`bot-reply` |
 | **8** | التنبيهات والتوجيه: Telegram والبريد، وjob الإرسال، وصفحة `/facebook/alerts` (التوكن، وجلب الـ Chat IDs، والمستلمون، وجدول التوجيه، والزر التجريبي، والسجل) | `alerts-routing` و`alerts-message` و`alerts-telegram` و`alerts-email` و`alerts-delivery` و`alerts-api` |
