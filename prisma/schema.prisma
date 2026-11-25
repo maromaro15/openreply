@@ -87,6 +87,15 @@ model Workspace {
   operationalEvents OperationalEvent[]
   serviceKeys       ServiceKey[]
 
+  // Facebook Pages / Messenger, bot knowledge base and handoff alerts.
+  // Relation fields only: Prisma needs both sides of a relation, and these
+  // add no column to the Workspace table.
+  facebookPages    FacebookPage[]
+  botSettings      BotSettings?
+  knowledgeEntries KnowledgeEntry[]
+  alertSettings    AlertSettings?
+  alertRecipients  AlertRecipient[]
+
   @@index([ownerId])
 }
 
@@ -444,4 +453,433 @@ model ZernioConnection {
 model PostbackDelivery {
   id String @id
   createdAt DateTime @default(now())
+}
+
+// ─── Facebook Pages / Messenger ─────────────────────────────────────────────
+//
+// A separate channel next to Instagram. None of these tables is read by the
+// Instagram code paths, and none of the Instagram tables is changed by them.
+
+enum FacebookPageStatus {
+  ACTIVE
+  TOKEN_INVALID
+  DISCONNECTED
+}
+
+/// A Facebook Page connected with a long-lived Page access token.
+model FacebookPage {
+  id                  String             @id @default(cuid())
+  workspaceId         String
+  /// The Page ID, which is entry.id in webhooks. One Page belongs to one
+  /// workspace, so two brands can never share its conversations.
+  pageId              String             @unique
+  name                String
+  pictureUrl          String?
+  /// AES-256-GCM (lib/meta/oauth encryptToken). Never sent to the browser.
+  accessToken         String
+  tokenLast4          String?
+  /// null when the token does not expire.
+  tokenExpiresAt      DateTime?
+  dataAccessExpiresAt DateTime?
+  grantedScopes       String[]           @default([])
+  /// Webhook fields this app is subscribed to on the Page.
+  subscribedFields    String[]           @default([])
+  webhookSubscribed   Boolean            @default(false)
+  botEnabled          Boolean            @default(true)
+  status              FacebookPageStatus @default(ACTIVE)
+  lastError           String?
+  lastWebhookAt       DateTime?
+  tokenCheckedAt      DateTime?
+  connectedAt         DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  workspace     Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaigns     FacebookCampaign[]
+  commentLogs   FacebookCommentLog[]
+  conversations FacebookConversation[]
+
+  @@index([workspaceId])
+}
+
+/// Comment keyword → private reply with a link button to the landing page.
+model FacebookCampaign {
+  id                  String   @id @default(cuid())
+  workspaceId         String
+  facebookPageId      String
+  name                String
+  /// "<pageId>_<postId>" as sent in feed webhooks; null with matchAnyPost.
+  postId              String?
+  postPermalink       String?
+  postPreview         String?
+  matchAnyPost        Boolean  @default(false)
+  keywords            String[]
+  matchAnyWord        Boolean  @default(false)
+  wholeWordMatch      Boolean  @default(true)
+  /// Supports {name}.
+  privateReplyMessage String
+  /// Meta caps button titles at 20 characters.
+  buttonLabel         String
+  landingUrl          String
+  addUtm              Boolean  @default(true)
+  publicReplyEnabled  Boolean  @default(false)
+  publicReplyMessages String[] @default([])
+  /// What the campaign is about, given to the bot for conversations it starts.
+  botContext          String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  page        FacebookPage         @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  commentLogs FacebookCommentLog[]
+
+  @@index([workspaceId])
+  @@index([facebookPageId, isActive])
+  @@index([postId])
+}
+
+enum FacebookCommentStatus {
+  PENDING
+  SENT
+  FAILED
+  /// The send may have gone through. Never retried automatically.
+  UNCONFIRMED
+  /// Older than the 7 days Meta allows for a private reply.
+  SKIPPED_EXPIRED
+  /// Meta 10900, or another campaign already used the one private reply.
+  SKIPPED_ALREADY_REPLIED
+  /// Meta 10903 / 551: this person cannot receive a private reply.
+  SKIPPED_NOT_ELIGIBLE
+  SKIPPED_RATE_LIMIT
+}
+
+/// One row per matched comment. The unique key is what enforces Meta's rule
+/// of a single private reply per comment, across retries and campaigns.
+model FacebookCommentLog {
+  id                             String                @id @default(cuid())
+  workspaceId                    String
+  facebookPageId                 String
+  campaignId                     String?
+  commentId                      String
+  postId                         String
+  parentId                       String?
+  commenterId                    String?
+  commenterName                  String?
+  commentText                    String
+  commentCreatedAt               DateTime
+  matchedKeyword                 String?
+  status                         FacebookCommentStatus @default(PENDING)
+  attempts                       Int                   @default(0)
+  /// Claim flag set before the send, cleared only by a confirmed outcome.
+  deliveryUnconfirmed            Boolean               @default(false)
+  privateReplySentAt             DateTime?
+  recipientPsid                  String?
+  privateReplyMessageId          String?
+  errorMessage                   String?
+  publicReplyDeliveryUnconfirmed Boolean               @default(false)
+  publicReplySentAt              DateTime?
+  publicReplyCommentId           String?
+  publicReplyError               String?
+  createdAt                      DateTime              @default(now())
+  updatedAt                      DateTime              @updatedAt
+
+  page     FacebookPage      @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  campaign FacebookCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@unique([facebookPageId, commentId])
+  @@index([workspaceId, createdAt])
+  @@index([campaignId])
+  @@index([status])
+}
+
+/// Why a conversation was handed to a person. Drives alert routing.
+enum HandoffCategory {
+  WHOLESALE_ORDER
+  CUSTOM_ORDER
+  COMPLAINT
+  NOT_IN_KB
+  AUDIO_FAILED
+  OTHER
+}
+
+enum FacebookConversationMode {
+  BOT
+  HUMAN
+}
+
+enum FacebookModeReason {
+  /// The bot asked for a person.
+  BOT_HANDOFF
+  /// Someone clicked "take over" in OpenReply.
+  INBOX_TAKEOVER
+  /// A person replied from Meta Business Suite or the Pages app.
+  META_REPLY
+  /// Returned to the bot from the inbox.
+  INBOX_RELEASE
+}
+
+model FacebookConversation {
+  id               String                   @id @default(cuid())
+  workspaceId      String
+  facebookPageId   String
+  /// Page-scoped user ID.
+  psid             String
+  userName         String?
+  mode             FacebookConversationMode @default(BOT)
+  modeReason       FacebookModeReason?
+  modeChangedAt    DateTime?
+  needsHuman       Boolean                  @default(false)
+  handoffCategory  HandoffCategory?
+  handoffReason    String?
+  handoffAt        DateTime?
+  sourceCampaignId String?
+  sourceCommentId  String?
+  /// The 24-hour standard messaging window runs from the last inbound message.
+  lastInboundAt    DateTime?
+  lastOutboundAt   DateTime?
+  lastMessageText  String?
+  lastMessageAt    DateTime?
+  unreadCount      Int                      @default(0)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  page     FacebookPage                @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  messages FacebookMessage[]
+  events   FacebookConversationEvent[]
+
+  @@unique([facebookPageId, psid])
+  @@index([workspaceId, needsHuman, lastMessageAt])
+  @@index([workspaceId, handoffCategory])
+}
+
+enum FacebookMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum FacebookMessageAuthor {
+  CUSTOMER
+  BOT
+  HUMAN
+  /// The private reply that opened the thread.
+  CAMPAIGN
+}
+
+enum FacebookMessageOrigin {
+  /// Sent through this app: the bot, a campaign, or the OpenReply inbox.
+  OPENREPLY
+  /// Seen only as an echo: Meta Business Suite, the Pages app, another tool.
+  EXTERNAL
+}
+
+enum FacebookTranscriptStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+enum FacebookSendStatus {
+  PENDING
+  SENT
+  FAILED
+  UNCONFIRMED
+}
+
+model FacebookMessage {
+  id               String                    @id @default(cuid())
+  workspaceId      String
+  conversationId   String
+  direction        FacebookMessageDirection
+  author           FacebookMessageAuthor
+  /// Outbound messages only.
+  origin           FacebookMessageOrigin?
+  /// The app_id an echo carried, kept to diagnose external senders.
+  echoAppId        String?
+  /// Messenger message ID. Unique, so a webhook retry never stores twice.
+  mid              String?                   @unique
+  /// For a bot reply: the inbound message it answers. Unique per
+  /// conversation, so one trigger can never get two replies.
+  replyToMid       String?
+  text             String?
+  attachmentType   String?
+  attachmentUrl    String?
+  transcript       String?
+  transcriptStatus FacebookTranscriptStatus?
+  sendStatus       FacebookSendStatus?
+  error            String?
+  /// The dashboard user who sent a HUMAN reply from the OpenReply inbox.
+  sentByUserId     String?
+  sentAt           DateTime                  @default(now())
+  createdAt        DateTime                  @default(now())
+
+  conversation FacebookConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, replyToMid])
+  @@index([conversationId, sentAt])
+}
+
+enum FacebookConversationEventType {
+  HANDOFF
+  HUMAN_TAKEOVER
+  RETURNED_TO_BOT
+}
+
+/// Conversation timeline. A HANDOFF event is what alerts are sent for.
+model FacebookConversationEvent {
+  id             String                        @id @default(cuid())
+  workspaceId    String
+  conversationId String
+  type           FacebookConversationEventType
+  category       HandoffCategory?
+  reason         String?
+  actorUserId    String?
+  createdAt      DateTime                      @default(now())
+
+  conversation FacebookConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+enum FacebookWebhookStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+/// Raw Page webhook deliveries for connected Pages, kept 30 days. Separate
+/// from WebhookEvent so the Instagram comment sweep never scans them.
+model FacebookWebhookEvent {
+  id           String                @id @default(cuid())
+  workspaceId  String?
+  pageId       String?
+  payload      Json
+  status       FacebookWebhookStatus @default(RECEIVED)
+  errorMessage String?
+  createdAt    DateTime              @default(now())
+  processedAt  DateTime?
+
+  @@index([createdAt])
+  @@index([pageId])
+}
+
+// ─── Bot knowledge base (per workspace, not tied to a channel) ──────────────
+
+model BotSettings {
+  workspaceId    String   @id
+  enabled        Boolean  @default(false)
+  businessName   String?
+  /// Tone, dialect and extra rules from the workspace.
+  instructions   String?
+  handoffMessage String   @default("نرجعولك")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+enum KnowledgeEntryKind {
+  PRODUCT
+  DELIVERY
+  FAQ
+  RULE
+  INFO
+}
+
+model KnowledgeEntry {
+  id          String             @id @default(cuid())
+  workspaceId String
+  kind        KnowledgeEntryKind
+  /// Product name, delivery zone, question or rule title.
+  title       String
+  content     String             @default("")
+  /// Product price or delivery fee, quoted verbatim by the bot.
+  price       String?
+  isActive    Boolean            @default(true)
+  sortOrder   Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, kind, isActive])
+}
+
+// ─── Handoff alerts (per workspace, not tied to a channel) ──────────────────
+
+enum AlertChannel {
+  TELEGRAM
+  EMAIL
+}
+
+enum AlertDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model AlertSettings {
+  workspaceId         String   @id
+  /// Telegram bot token from BotFather, encrypted. Never sent to the browser.
+  telegramBotToken    String?
+  /// From getMe, for display.
+  telegramBotUsername String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model AlertRecipient {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  channel        AlertChannel
+  label          String
+  /// A person or a group (group IDs are negative).
+  telegramChatId String?
+  email          String?
+  /// Receives the alerts of categories that have no route.
+  isDefault      Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  routes    AlertRoute[]
+
+  @@index([workspaceId])
+}
+
+/// Routing table: which recipients get the alerts of a handoff category.
+model AlertRoute {
+  id          String          @id @default(cuid())
+  workspaceId String
+  category    HandoffCategory
+  recipientId String
+  createdAt   DateTime        @default(now())
+
+  recipient AlertRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([category, recipientId])
+  @@index([workspaceId, category])
+}
+
+/// One row per alert per recipient. dedupeKey stops a retried job from
+/// sending the same alert twice.
+model AlertDelivery {
+  id             String              @id @default(cuid())
+  workspaceId    String
+  conversationId String?
+  eventId        String?
+  recipientId    String?
+  channel        AlertChannel
+  category       HandoffCategory?
+  dedupeKey      String              @unique
+  isTest         Boolean             @default(false)
+  status         AlertDeliveryStatus @default(PENDING)
+  attempts       Int                 @default(0)
+  error          String?
+  createdAt      DateTime            @default(now())
+  sentAt         DateTime?
+
+  @@index([workspaceId, createdAt])
 }
