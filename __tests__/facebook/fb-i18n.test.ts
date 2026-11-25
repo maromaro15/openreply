@@ -44,4 +44,12 @@ describe("Facebook, agency and alerts copy", () => {
     expect(moduleTitle("/agencyx")).toBeNull();
     expect(moduleTitle("/dashboard")).toBeNull();
   });
+
+  it("titles the catalog screens", () => {
+    expect(moduleTitle("/facebook/products")).toBe("Products");
+    expect(moduleTitle("/facebook/products/new")).toBe("New product");
+    expect(moduleTitle("/facebook/products/attributes")).toBe("Product attributes");
+    expect(moduleTitle("/facebook/products/cm123")).toBe("Product card");
+    expect(moduleTitle("/facebook/productsx")).toBeNull();
+  });
 });

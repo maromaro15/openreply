@@ -525,12 +525,15 @@ model FacebookCampaign {
   publicReplyMessages String[] @default([])
   /// What the campaign is about, given to the bot for conversations it starts.
   botContext          String?
+  /// The catalog product the campaign promotes: the bot gets its full card.
+  productId           String?
   isActive            Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   page        FacebookPage         @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
   commentLogs FacebookCommentLog[]
+  product     Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
   @@index([facebookPageId, isActive])
@@ -639,6 +642,8 @@ model FacebookConversation {
   lastMessageText  String?
   lastMessageAt    DateTime?
   unreadCount      Int                      @default(0)
+  /// Catalog products the conversation is about (named, from the campaign, recognised in a photo).
+  focusProductIds  String[]                 @default([])
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
 
@@ -882,4 +887,159 @@ model AlertDelivery {
   sentAt         DateTime?
 
   @@index([workspaceId, createdAt])
+}
+
+// ─── Product catalog (per workspace) ────────────────────────────────────────
+// Like AlertRoute and AlertDelivery, these tables hold workspaceId without a
+// relation to Workspace, so the Workspace model keeps only the relation
+// fields approved in PLAN.md (workspaces are never deleted in this app).
+
+enum ProductAttributeType {
+  TEXT
+  NUMBER
+  CHOICE
+  BOOLEAN
+}
+
+enum ProductStatus {
+  /// Extracted by the AI (posts, conversations, interview): waits for a person.
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProductSource {
+  MANUAL
+  IMPORT
+  POST
+  CONVERSATION
+  INTERVIEW
+}
+
+/// One of a brand's own product attributes (thickness, material, water resistance...).
+model ProductAttribute {
+  id          String               @id @default(cuid())
+  workspaceId String
+  /// Stable key of the value in Product.attributes, e.g. "thickness".
+  key         String
+  /// As the brand says it, e.g. "السمك".
+  label       String
+  type        ProductAttributeType @default(TEXT)
+  unit        String?
+  /// The choices of a CHOICE attribute.
+  options     String[]             @default([])
+  sortOrder   Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([workspaceId, key])
+}
+
+/// A product card. Prices are kept as written and quoted as they are.
+model Product {
+  id          String        @id @default(cuid())
+  workspaceId String
+  status      ProductStatus @default(ACTIVE)
+  source      ProductSource @default(MANUAL)
+  /// The post, conversation or interview it came from.
+  sourceRef   String?
+  name        String
+  /// The product's code or number, as written.
+  code        String?
+  /// The code normalized for lookups (lib/catalog/codes.ts); unique in the brand.
+  codeKey     String?
+  price       String?
+  available   Boolean       @default(true)
+  landingUrl  String?
+  /// Free text about the product, in the brand's words.
+  description String?
+  /// How to install or use it.
+  howToUse    String?
+  /// { [ProductAttribute.key]: value }
+  attributes  Json          @default("{}")
+  strengths   String[]      @default([])
+  /// Compared with similar products or with competitors.
+  comparisons String?
+  /// The uses and places it suits.
+  suitableFor String?
+  /// [{ question, answer }]: the known questions and worries, with their answers.
+  objections  Json          @default("[]")
+  mainImageId String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  mainImage ProductImage?      @relation("ProductMainImage", fields: [mainImageId], references: [id], onDelete: SetNull)
+  images    ProductImage[]     @relation("ProductImages")
+  variants  ProductVariant[]
+  related   ProductRelation[]  @relation("ProductRelationFrom")
+  relatedBy ProductRelation[]  @relation("ProductRelationTo")
+  campaigns FacebookCampaign[]
+
+  @@unique([workspaceId, codeKey])
+  @@index([workspaceId, status])
+}
+
+/// A colour or type of a product, with its own code and image.
+model ProductVariant {
+  id          String   @id @default(cuid())
+  workspaceId String
+  productId   String
+  /// As written on the post's photos, e.g. "12".
+  code        String
+  /// The code normalized for lookups.
+  codeKey     String
+  name        String?
+  available   Boolean  @default(true)
+  /// When it differs from the product's price.
+  price       String?
+  imageId     String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  image   ProductImage? @relation(fields: [imageId], references: [id], onDelete: SetNull)
+
+  @@unique([productId, codeKey])
+  @@index([workspaceId, codeKey])
+}
+
+/// A product image, kept in the database (so the daily backup holds it) and
+/// served at /api/public/media/<publicId>, since Messenger fetches the images
+/// it sends.
+model ProductImage {
+  id          String   @id @default(cuid())
+  workspaceId String
+  productId   String?
+  /// Random and unguessable: all the public URL reveals.
+  publicId    String   @unique
+  /// image/jpeg, image/png or image/webp, read from the bytes.
+  mimeType    String
+  size        Int
+  sha256      String
+  data        Bytes
+  fileName    String?
+  createdAt   DateTime @default(now())
+
+  product   Product?         @relation("ProductImages", fields: [productId], references: [id], onDelete: Cascade)
+  mainOf    Product[]        @relation("ProductMainImage")
+  variantOf ProductVariant[]
+
+  @@index([workspaceId, productId])
+}
+
+/// An alternative or close product the bot may suggest.
+model ProductRelation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  productId   String
+  relatedId   String
+  /// Why it is suggested, e.g. "cheaper" or "thicker".
+  note        String?
+  createdAt   DateTime @default(now())
+
+  product Product @relation("ProductRelationFrom", fields: [productId], references: [id], onDelete: Cascade)
+  related Product @relation("ProductRelationTo", fields: [relatedId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, relatedId])
 }

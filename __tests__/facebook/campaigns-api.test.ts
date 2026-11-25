@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
 }));
 const db = vi.hoisted(() => ({
   facebookPage: { findFirst: vi.fn() },
+  product: { findFirst: vi.fn() },
   facebookCampaign: {
     create: vi.fn(),
     findFirst: vi.fn(),
@@ -57,6 +58,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.context = { userId: "u", workspaceId: "ws_a", role: "ADMIN" };
   db.facebookPage.findFirst.mockResolvedValue({ id: "fp_1" });
+  db.product.findFirst.mockResolvedValue({ id: "prod_1" });
   db.facebookCampaign.create.mockImplementation(async ({ data }: { data: unknown }) => ({ id: "camp_1", ...(data as object) }));
   db.facebookCampaign.updateMany.mockResolvedValue({ count: 1 });
   db.facebookCampaign.deleteMany.mockResolvedValue({ count: 1 });
@@ -116,6 +118,29 @@ describe("creating a campaign", () => {
     state.context = { userId: "u", workspaceId: "ws_a", role: "MEMBER" };
     expect((await create(request(BASE, "POST", valid))).status).toBe(403);
   });
+
+  it("ties the campaign to a product of the brand, or to none", async () => {
+    await create(request(BASE, "POST", { ...valid, productId: "prod_1" }));
+    expect(db.product.findFirst).toHaveBeenCalledWith({ where: { id: "prod_1", workspaceId: "ws_a" }, select: { id: true } });
+    expect(db.facebookCampaign.create.mock.calls[0][0].data).toMatchObject({ productId: "prod_1" });
+
+    // No product (left out, null or "") is no lookup and no link.
+    for (const productId of [undefined, null, ""]) {
+      db.product.findFirst.mockClear();
+      db.facebookCampaign.create.mockClear();
+      await create(request(BASE, "POST", { ...valid, productId }));
+      expect(db.product.findFirst).not.toHaveBeenCalled();
+      expect(db.facebookCampaign.create.mock.calls[0][0].data).toMatchObject({ productId: null });
+    }
+  });
+
+  it("refuses a product of another brand", async () => {
+    db.product.findFirst.mockResolvedValue(null);
+    const response = await create(request(BASE, "POST", { ...valid, productId: "prod_other" }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe("Choose a product of this brand.");
+    expect(db.facebookCampaign.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("listing and changing campaigns", () => {
@@ -137,6 +162,16 @@ describe("listing and changing campaigns", () => {
     expect((await patch(request(`${BASE}/camp_1`, "PATCH", valid), params("camp_1"))).status).toBe(200);
     expect(db.facebookCampaign.updateMany.mock.calls[0][0].where).toEqual({ id: "camp_1", workspaceId: "ws_a" });
     expect((await patch(request(`${BASE}/camp_1`, "PATCH", { ...valid, buttonLabel: "" }), params("camp_1"))).status).toBe(400);
+  });
+
+  it("keeps or changes the product on a replace, within the brand", async () => {
+    await patch(request(`${BASE}/camp_1`, "PATCH", { ...valid, productId: "prod_1" }), params("camp_1"));
+    expect(db.facebookCampaign.updateMany.mock.calls[0][0].data).toMatchObject({ productId: "prod_1" });
+
+    db.product.findFirst.mockResolvedValue(null);
+    db.facebookCampaign.updateMany.mockClear();
+    expect((await patch(request(`${BASE}/camp_1`, "PATCH", { ...valid, productId: "prod_other" }), params("camp_1"))).status).toBe(400);
+    expect(db.facebookCampaign.updateMany).not.toHaveBeenCalled();
   });
 
   it("deletes within the active brand only", async () => {

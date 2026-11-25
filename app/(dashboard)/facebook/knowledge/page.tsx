@@ -6,8 +6,9 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import BotTester from "@/components/facebook/bot-tester";
-import type { FbI18n, FbStaticKey } from "@/lib/facebook/i18n";
+import { translateReason, type FbI18n, type FbStaticKey } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 
 type Kind = "PRODUCT" | "DELIVERY" | "FAQ" | "RULE" | "INFO";
@@ -51,7 +52,7 @@ const KINDS: Kind[] = ["PRODUCT", "DELIVERY", "FAQ", "RULE", "INFO"];
 const FIELDS: Record<Kind, Fields> = {
   PRODUCT: {
     tab: "Products",
-    help: "The bot quotes prices exactly as written here. An unavailable product stays known, so the bot can say it is out of stock.",
+    help: "Simple products from before the catalog. The bot still uses them; turn each one into a card to add its colours, pictures and details.",
     title: "Product name",
     price: "Price",
     content: "Description (sizes, colours, details)",
@@ -343,6 +344,7 @@ function SettingsForm({
 export default function KnowledgePage() {
   const fb = useFbI18n();
   const { t } = fb;
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("settings");
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [entries, setEntries] = useState<Entry[] | null>(null);
@@ -394,6 +396,30 @@ export default function KnowledgePage() {
     } finally {
       setBusy(false);
       setReloadKey((key) => key + 1);
+    }
+  }
+
+  /** A simple product becomes a card of the catalog, opened to be completed. */
+  async function convert(entry: Entry) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/catalog/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryId: entry.id }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (response.ok && payload?.success) {
+        router.push(`/facebook/products/${payload.data.product.id}`);
+        return;
+      }
+      setError(payload?.error ? translateReason(t, payload.error) : t("Something went wrong. Please try again."));
+      setReloadKey((key) => key + 1);
+    } catch {
+      setError(t("Could not reach the server. Please try again."));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -456,7 +482,17 @@ export default function KnowledgePage() {
       ) : (
         <div className="space-y-5">
           <p className="text-sm text-muted">{t(FIELDS[tab].help)}</p>
-          {canEdit && (
+          {tab === "PRODUCT" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-accent/30 bg-accent/5 p-4 text-sm">
+              <p className="text-foreground">
+                {t("New products go in the catalog: each gets a full card with its colours, codes, pictures and what helps the customer choose.")}
+              </p>
+              <Link href="/facebook/products" className="shrink-0 rounded bg-accent px-3 py-2 font-medium text-white hover:bg-accent-hover">
+                {t("Open the products")}
+              </Link>
+            </div>
+          )}
+          {canEdit && tab !== "PRODUCT" && (
             <section className="rounded border border-border p-4">
               <h2 className="mb-3 text-sm font-semibold text-foreground">{t("Add")}</h2>
               <EntryForm
@@ -527,7 +563,17 @@ export default function KnowledgePage() {
                           )}
                         </div>
                         {canEdit && (
-                          <div className="flex shrink-0 gap-2">
+                          <div className="flex shrink-0 flex-wrap gap-2">
+                            {entry.kind === "PRODUCT" && (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void convert(entry)}
+                                className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+                              >
+                                {t("Turn into a product card")}
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => setEditing(entry.id)}

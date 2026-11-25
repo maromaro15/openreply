@@ -56,3 +56,8 @@ export function getBotDebounceMs(): number {
 export function getBotHistoryMessages(): number {
   return readIntEnv("BOT_HISTORY_MESSAGES", 20, { min: 1, max: 50 });
 }
+
+/** Product cards given in full to the model in one answer (the others are only in the index). */
+export function getBotMaxFullCards(): number {
+  return readIntEnv("BOT_MAX_FULL_CARDS", 8, { min: 1, max: 20 });
+}

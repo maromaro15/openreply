@@ -43,6 +43,12 @@ const NEW_TABLES = [
   "FacebookPage",
   "FacebookWebhookEvent",
   "KnowledgeEntry",
+  // Phase 10: the product catalog.
+  "Product",
+  "ProductAttribute",
+  "ProductImage",
+  "ProductRelation",
+  "ProductVariant",
 ];
 
 function readMigration(name: string): string {
@@ -135,14 +141,13 @@ describe.skipIf(!databaseUrl)("Facebook schema on PostgreSQL", () => {
     }
     before = await snapshot(sql);
 
-    await sql.query(readMigration(FACEBOOK_MIGRATION));
-    const oldTypes = [...new Set(before.enums.map((row) => (row as { typname: string }).typname))];
-    after = await snapshot(sql, before.tables, oldTypes);
-
-    // Any migration added after this one is applied too, as in production.
-    for (const name of migrations.filter((name) => name > FACEBOOK_MIGRATION)) {
+    // Every migration of the branch, as in production; the old tables and
+    // types must come out of all of them unchanged.
+    for (const name of migrations.filter((name) => name >= FACEBOOK_MIGRATION)) {
       await sql.query(readMigration(name));
     }
+    const oldTypes = [...new Set(before.enums.map((row) => (row as { typname: string }).typname))];
+    after = await snapshot(sql, before.tables, oldTypes);
 
     db = new PrismaClient({
       adapter: new PrismaPg({ connectionString: databaseUrl }, { schema }),

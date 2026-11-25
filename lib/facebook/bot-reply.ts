@@ -17,11 +17,18 @@
 import type { Job } from "bullmq";
 import type { FacebookConversation, FacebookMessage, FacebookPage } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
-import { getBotHistoryMessages } from "@/lib/ai/env";
+import { getBotHistoryMessages, getBotMaxFullCards } from "@/lib/ai/env";
 import { enqueueHandoffAlerts } from "@/lib/alerts/dispatch";
 import { answerCustomer } from "@/lib/bot/answer";
 import { SYSTEM_REASONS, type BotDecision } from "@/lib/bot/classify";
 import { getBotSettings, listKnowledge, type BotSettingsView } from "@/lib/bot/knowledge";
+import { loadCatalogForBot, rememberFocus } from "@/lib/catalog/bot";
+import {
+  buildCatalogSection,
+  catalogReferenceTexts,
+  mentionedProductIds,
+  selectCardProducts,
+} from "@/lib/catalog/prompt";
 import type { PromptMessage } from "@/lib/bot/prompt";
 import { landingUrlFor } from "./comments";
 import { isUniqueViolation, messagePreview, touchLastMessage } from "./conversations";
@@ -273,7 +280,7 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
   });
   if (lastHour >= MAX_BOT_REPLIES_PER_HOUR) return handoffBy("OTHER", SYSTEM_REASONS.tooManyReplies);
 
-  const [knowledge, history, campaign] = await Promise.all([
+  const [knowledge, history, campaign, catalog] = await Promise.all([
     listKnowledge(conversation.workspaceId),
     prisma.facebookMessage.findMany({
       where: { conversationId },
@@ -285,7 +292,21 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
           where: { id: conversation.sourceCampaignId, workspaceId: conversation.workspaceId },
         })
       : Promise.resolve(null),
+    loadCatalogForBot(conversation.workspaceId),
   ]);
+
+  // The products this conversation is about: the campaign's, the ones named
+  // so far, the ones named now, by the customer or by the Page (an
+  // alternative the bot suggested gets its card on the next answer). Their
+  // full cards go to the model.
+  const messages = toPromptMessages(history.reverse());
+  const mentioned = mentionedProductIds(catalog.products, messages.map((message) => message.text));
+  const focus = await rememberFocus(conversation.id, mentioned, conversation.focusProductIds);
+  const cards = selectCardProducts(
+    catalog.products,
+    { campaignProductId: campaign?.productId ?? null, focusIds: focus, mentionedIds: mentioned },
+    getBotMaxFullCards()
+  );
 
   const answer = await answerCustomer({
     businessName: settings.businessName,
@@ -295,7 +316,9 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     campaign: campaign
       ? { name: campaign.name, botContext: campaign.botContext, landingUrl: landingUrlFor(campaign) }
       : null,
-    history: toPromptMessages(history.reverse()),
+    history: messages,
+    catalogSection: buildCatalogSection(catalog.products, cards, catalog.attributes),
+    catalogReference: catalogReferenceTexts(catalog.products, cards, catalog.attributes),
   });
   if (answer.error) console.warn(`[Facebook bot] ${conversationId}: ${answer.error}`);
   if (answer.decision.kind === "handoff") return handOff(conversation, triggerMid, answer.decision, settings);

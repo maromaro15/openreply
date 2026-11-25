@@ -33,6 +33,8 @@ const db = vi.hoisted(() => ({
   facebookConversationEvent: { create: vi.fn() },
   botSettings: { findUnique: vi.fn() },
   knowledgeEntry: { findMany: vi.fn() },
+  product: { findMany: vi.fn() },
+  productAttribute: { findMany: vi.fn() },
   $transaction: vi.fn(),
 }));
 const graph = vi.hoisted(() => ({ sendMessage: vi.fn(), getMessengerProfileName: vi.fn() }));
@@ -121,6 +123,7 @@ beforeEach(() => {
     needsHuman: false,
     sourceCampaignId: null,
     lastInboundAt: new Date("2026-11-25T11:59:50Z"),
+    focusProductIds: [] as string[],
   };
   s.settings = { workspaceId: "ws_a", enabled: true, businessName: "Maison Lina", instructions: null, handoffMessage: "نرجعولك" };
   s.latestMid = "m_in_2";
@@ -160,6 +163,8 @@ beforeEach(() => {
     { id: "k1", kind: "PRODUCT", title: "Robe Kabyle", content: "S à XL", price: "4500 DA", isActive: true, sortOrder: 0, createdAt: NOW },
   ]);
   db.facebookCampaign.findFirst.mockResolvedValue(null);
+  db.product.findMany.mockResolvedValue([]);
+  db.productAttribute.findMany.mockResolvedValue([]);
   graph.sendMessage.mockResolvedValue({ recipient_id: "psid_1", message_id: "m_out_1" });
   modelSays({ handoff: false, category: "NONE", reason: "", reply: "السعر 4500 DA" });
 });
@@ -449,5 +454,108 @@ describe("when the send fails", () => {
   it("runs in the Facebook worker", async () => {
     s.conversation.mode = "HUMAN";
     await expect(dispatchFacebookJob(job() as never)).resolves.toBe("not_bot");
+  });
+});
+
+describe("the product catalog", () => {
+  // Rows as lib/catalog/bot.ts loads them: active products, with colours and alternatives.
+  const row = (fields: Record<string, unknown>) => ({
+    code: null,
+    price: null,
+    available: true,
+    landingUrl: null,
+    description: null,
+    howToUse: null,
+    attributes: {},
+    strengths: [],
+    comparisons: null,
+    suitableFor: null,
+    objections: [],
+    variants: [],
+    related: [],
+    ...fields,
+  });
+  const WALLPAPER = row({
+    id: "prod_wp",
+    name: "Papier peint 3D",
+    code: "WP-12",
+    price: "1200 DA",
+    attributes: { thickness: 3 },
+    strengths: ["يتغسل بالماء"],
+    objections: [{ question: "يدوم؟", answer: "ضمان 5 سنين" }],
+    variants: [{ code: "12-04", name: "Gris", available: true, price: null }],
+    related: [{ note: "أرخص", related: { id: "prod_lp", name: "Lambris PVC", status: "ACTIVE" } }],
+  });
+  const LAMBRIS = row({ id: "prod_lp", name: "Lambris PVC", code: "LP-7", price: "900 DA", strengths: ["ضد الرطوبة"] });
+  const instruction = () => ai.generateJson.mock.calls[0][0].systemInstruction as string;
+  const focusSaved = () =>
+    db.facebookConversation.update.mock.calls.filter(([args]) => "focusProductIds" in (args as { data: object }).data);
+
+  beforeEach(() => {
+    db.productAttribute.findMany.mockResolvedValue([{ key: "thickness", label: "السمك", type: "NUMBER", unit: "mm" }]);
+    db.product.findMany.mockResolvedValue([LAMBRIS, WALLPAPER]);
+  });
+
+  it("lists every active product, and gives the full card of the one the customer names", async () => {
+    s.pending = [inbound("m_in_2", { text: "شحال wp 12؟" })];
+    s.history = [...s.pending];
+    modelSays({ handoff: false, category: "NONE", reason: "", reply: "سعرو 1200 DA، وعندو ضمان 5 سنين" });
+
+    await expect(processBotReplyJob(job())).resolves.toBe("replied");
+    expect(db.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { workspaceId: "ws_a", status: "ACTIVE" } }));
+    expect(instruction()).toContain("## PRODUCT CATALOG");
+    expect(instruction()).toContain("- Lambris PVC | code: LP-7 | price: 900 DA");
+    expect(instruction()).toContain("#### Papier peint 3D");
+    expect(instruction()).toContain("- السمك: 3 mm");
+    expect(instruction()).not.toContain("ضد الرطوبة");
+    // Its card was shown: the guard lets its numbers through.
+    expect(graph.sendMessage.mock.calls[0][2]).toMatchObject({ text: "سعرو 1200 DA، وعندو ضمان 5 سنين" });
+    expect(focusSaved()).toEqual([[{ where: { id: "conv_1" }, data: { focusProductIds: ["prod_wp"] } }]]);
+  });
+
+  it("stops a number that only a card not shown holds", async () => {
+    modelSays({ handoff: false, category: "NONE", reason: "", reply: "عندو ضمان 5 سنين" });
+    await expect(processBotReplyJob(job())).resolves.toBe("handed_off");
+    expect(instruction()).not.toContain("#### Papier peint 3D");
+    expect(graph.sendMessage.mock.calls.map(([, , message]) => (message as { text?: string }).text)).not.toContain(
+      "عندو ضمان 5 سنين"
+    );
+  });
+
+  it("shows the campaign's product and the remembered ones, and saves an unchanged focus once", async () => {
+    s.conversation.sourceCampaignId = "camp_1";
+    s.conversation.focusProductIds = ["prod_lp"];
+    db.facebookCampaign.findFirst.mockResolvedValue({
+      id: "camp_1",
+      name: "Promo",
+      botContext: null,
+      landingUrl: "https://shop.example/promo",
+      addUtm: false,
+      productId: "prod_wp",
+    });
+    await processBotReplyJob(job());
+    expect(instruction()).toContain("#### Papier peint 3D");
+    expect(instruction()).toContain("#### Lambris PVC");
+    expect(focusSaved()).toEqual([]);
+  });
+
+  it("gives the card of an alternative the Page suggested, on the next answer", async () => {
+    s.history = [
+      inbound("m_in_1", { text: "عندكم حاجة للحمام؟" }),
+      { ...inbound("m_out_1", { text: "عندنا Lambris PVC" }), direction: "OUTBOUND", author: "BOT" },
+      inbound("m_in_2", { text: "واش مزاياه؟" }),
+    ].reverse();
+    s.pending = [inbound("m_in_2", { text: "واش مزاياه؟" })];
+    await processBotReplyJob(job());
+    expect(instruction()).toContain("#### Lambris PVC");
+    expect(instruction()).toContain("ضد الرطوبة");
+  });
+
+  it("does without a catalog: no section at all", async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.productAttribute.findMany.mockResolvedValue([]);
+    await processBotReplyJob(job());
+    expect(instruction()).not.toContain("## PRODUCT CATALOG");
+    expect(focusSaved()).toEqual([]);
   });
 });

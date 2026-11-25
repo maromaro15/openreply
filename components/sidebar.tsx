@@ -35,6 +35,7 @@ const moduleNavSections: { title: FbStaticKey; items: { label: FbStaticKey; href
     items: [
       { label: "Inbox", href: "/facebook/inbox" },
       { label: "Campaigns", href: "/facebook/campaigns" },
+      { label: "Products", href: "/facebook/products" },
       { label: "Knowledge base", href: "/facebook/knowledge" },
       { label: "Alerts", href: "/facebook/alerts" },
       { label: "Pages", href: "/facebook/pages" },

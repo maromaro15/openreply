@@ -2,7 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { jsonError, requireWorkspace } from "@/lib/agency/http";
 import { answerCustomer } from "@/lib/bot/answer";
+import { getBotMaxFullCards } from "@/lib/ai/env";
 import { getBotSettings, listKnowledge } from "@/lib/bot/knowledge";
+import { loadCatalogForBot } from "@/lib/catalog/bot";
+import {
+  buildCatalogSection,
+  catalogReferenceTexts,
+  mentionedProductIds,
+  selectCardProducts,
+} from "@/lib/catalog/prompt";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +34,15 @@ export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "Write a message of 1 to 1000 characters.");
 
-  const [settings, knowledge] = await Promise.all([
+  const [settings, knowledge, catalog] = await Promise.all([
     getBotSettings(context.workspaceId),
     listKnowledge(context.workspaceId),
+    loadCatalogForBot(context.workspaceId),
   ]);
+  // As in a conversation: what the customer and the Page said, oldest first.
+  const texts = [...parsed.data.history.map((message) => message.text), parsed.data.message];
+  const mentioned = mentionedProductIds(catalog.products, texts);
+  const cards = selectCardProducts(catalog.products, { mentionedIds: mentioned }, getBotMaxFullCards());
   const answer = await answerCustomer({
     businessName: settings.businessName,
     pageName: context.workspace.name,
@@ -40,6 +53,8 @@ export async function POST(request: NextRequest) {
       ...parsed.data.history.map((message) => ({ from: message.from, by: "bot" as const, text: message.text })),
       { from: "customer" as const, text: parsed.data.message },
     ],
+    catalogSection: buildCatalogSection(catalog.products, cards, catalog.attributes),
+    catalogReference: catalogReferenceTexts(catalog.products, cards, catalog.attributes),
   });
 
   return NextResponse.json({

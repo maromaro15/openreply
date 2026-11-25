@@ -7,8 +7,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import KeywordInput from "@/components/keyword-input";
+import ProductSelect from "@/components/facebook/product-select";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
-import type { FbStaticKey } from "@/lib/facebook/i18n";
+import { translateReason, type FbStaticKey } from "@/lib/facebook/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 
 type PageOption = { id: string; name: string; status: string };
@@ -31,6 +32,8 @@ export type CampaignFormValues = {
   publicReplyEnabled: boolean;
   publicReplyText: string;
   botContext: string;
+  /** A product of the catalog, or "" for none. */
+  productId: string;
   isActive: boolean;
 };
 
@@ -54,6 +57,7 @@ export function defaultCampaignValues(arabic: boolean): CampaignFormValues {
     publicReplyEnabled: false,
     publicReplyText: arabic ? "بعثنالك في الخاص 📩" : "Sent you a message 📩",
     botContext: "",
+    productId: "",
     isActive: true,
   };
 }
@@ -106,6 +110,7 @@ export function toPayload(values: CampaignFormValues) {
     publicReplyEnabled: values.publicReplyEnabled,
     publicReplyMessages: values.publicReplyEnabled ? publicReplies(values) : [],
     botContext: values.botContext.trim() || null,
+    productId: values.productId || null,
     isActive: values.isActive,
   };
 }
@@ -210,7 +215,7 @@ export default function CampaignForm({
       });
       const payload = await response.json();
       if (!payload.success) {
-        setError(payload.error ?? t("Something went wrong. Please try again."));
+        setError(payload.error ? translateReason(t, payload.error) : t("Something went wrong. Please try again."));
         setSaving(false);
         return;
       }
@@ -381,7 +386,7 @@ export default function CampaignForm({
           )}
         </section>
 
-        <section className="panel space-y-2 rounded p-4 sm:p-6">
+        <section className="panel space-y-4 rounded p-4 sm:p-6">
           <label className="block space-y-1">
             <span className="text-sm font-semibold text-foreground">{t("What is this campaign about? (for the bot)")}</span>
             <span className="block text-xs text-muted">
@@ -389,6 +394,15 @@ export default function CampaignForm({
             </span>
             <textarea value={values.botContext} onChange={(event) => set("botContext", event.target.value)} rows={2} maxLength={2000} dir="auto" className={inputClass} />
           </label>
+          <div className="space-y-1">
+            <label htmlFor="campaign-product" className="block text-sm font-semibold text-foreground">
+              {t("Product (optional)")}
+            </label>
+            <span className="block text-xs text-muted">
+              {t("The bot reads this product's full card in the conversations of this campaign.")}
+            </span>
+            <ProductSelect id="campaign-product" value={values.productId} onChange={(productId) => set("productId", productId)} className={inputClass} />
+          </div>
         </section>
       </div>
 

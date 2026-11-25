@@ -22,6 +22,7 @@ type StoredCampaign = {
   publicReplyEnabled: boolean;
   publicReplyMessages: string[];
   botContext: string | null;
+  productId: string | null;
   isActive: boolean;
 };
 
@@ -43,6 +44,7 @@ function toValues(campaign: StoredCampaign): CampaignFormValues {
     publicReplyEnabled: campaign.publicReplyEnabled,
     publicReplyText: campaign.publicReplyMessages.join("\n"),
     botContext: campaign.botContext ?? "",
+    productId: campaign.productId ?? "",
     isActive: campaign.isActive,
   };
 }

@@ -7,6 +7,7 @@ import {
   setCampaignActive,
   updateCampaign,
   workspaceOwnsPage,
+  workspaceOwnsProduct,
 } from "@/lib/facebook/campaigns";
 
 type RouteProps = { params: Promise<{ id: string }> };
@@ -45,6 +46,9 @@ export async function PATCH(request: NextRequest, { params }: RouteProps) {
   }
   if (!(await workspaceOwnsPage(context.workspaceId, parsed.data.facebookPageId))) {
     return jsonError(400, "Choose a connected Page of this brand.");
+  }
+  if (!(await workspaceOwnsProduct(context.workspaceId, parsed.data.productId))) {
+    return jsonError(400, "Choose a product of this brand.");
   }
   if (!(await updateCampaign(context.workspaceId, id, parsed.data))) {
     return jsonError(404, "Campaign not found.");

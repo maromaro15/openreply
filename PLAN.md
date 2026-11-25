@@ -1276,6 +1276,24 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 
 الحارس يعتبر كل حقول البطاقات المرسلة «معلومات معروفة». كلما كانت البطاقة أغنى أقنع البوت أكثر، دون أن يضيف معلومة غير موجودة.
 
+**ما نُفّذ في المرحلة 10:**
+
+- **وحدات الـ subagents الثلاث** دُمجت واحدة بعد الأخرى (E2 ثم F ثم E1) بعد المراجعة سطراً بسطر، وبعد كل دمج: كل الاختبارات وtypecheck وlint.
+  - **E2، الصور:** النوع يُقرأ من البايتات عند الرفع وعند العرض أيضاً، فلا يقدّم الرابط العام HTML ولا SVG أبداً. المعرّف العام 32 حرفاً عشوائياً.
+  - **F، الكتالوج كما يقرأه البوت:** الفهرس، والبطاقة الكاملة، واكتشاف المنتج المذكور بالاسم أو بالكود مهما كُتب («wp 12» و«WP-12» و«ＷＰ١٢»). الكود القصير (رقم أو رقمان، أو حرف واحد) لا يُحسب إلا بعد كلمة مثل «اللون» أو «رقم» أو «#»، حتى لا تُفهم «نحب 12 حبة» على أنها اللون 12.
+  - **E1، البطاقات والخصائص:** الكود فريد داخل البراند بعد التوحيد، حتى عند حفظين في نفس اللحظة. الألوان تُطابَق بكودها، فيحتفظ كل لون بمعرّفه عبر الحفظ. الصور والمنتجات البديلة يجب أن تكون للبراند نفسه.
+- **ما أضفته عند الدمج:**
+  - فلتر «المتوفرة فقط» في القائمة.
+  - رسالة واضحة، بدل «غير موجود»، عند ترك قائمة اختيار بأقل من خيارين.
+  - البوت يبحث عن المنتجات المذكورة في رسائل الصفحة أيضاً، فالمنتج البديل الذي اقترحه تصل بطاقته في الرد التالي.
+  - الفهرس يبدأ بالمنتجات المتوفرة، لأنه يُقصّ من آخره إذا كبر جداً.
+- **الرفع:** لا يُقرأ الطلب أبعد من الحد (5MB مع هامش صغير)، حتى بدون `Content-Length`. الرابط العام يُحفظ في المتصفح يوماً واحداً ثم يُتحقق منه بالـ ETag، لأن رابط الصورة المحذوفة يجب أن يتوقف.
+- **الصور غير المستعملة:** صورة رُفعت لبطاقة لم تُحفظ أبداً تُحذف بعد يوم، في الصيانة اليومية للعامل.
+- **منتج الحملة:** حقل اختياري في نموذج الحملة. منتج صار مسودة أو أُرشف يبقى مختاراً مع تنبيه، فتُحفظ الحملة دون أن تفقده، والبوت لا يقرأ إلا المنتجات النشطة. حذف المنتج يترك الحملة تعمل بدونه.
+- **تبويب «المنتجات» في قاعدة المعرفة** لم يعد يضيف منتجات بسيطة. يوجّه إلى الكتالوج، وكل منتج بسيط موجود يتحوّل إلى بطاقة بزر واحد وفي معاملة واحدة، فلا يراه البوت مرتين.
+- **الواجهة بالعربية:** نصوصها كلها في `ar.json` (143 نصاً جديداً)، وتظهر حين تصبح العربية لغة للواجهة في المرحلة 15.
+- **تحقق حي، 48 فحصاً في المتصفح:** القالب وترتيبه؛ بطاقة كاملة بصورها وألوانها وخصائصها؛ رفض ملف ليس صورة ورابط `javascript:` وكود مكرر؛ الرابط العام بدون جلسة وبرؤوس آمنة؛ البحث والفلاتر واعتماد مسودة؛ منتج الحملة؛ التحويل من قاعدة المعرفة؛ العضو يقرأ فقط؛ لا تمرير أفقي على الهاتف؛ الحذف وما يتبعه.
+
 ### 6.13 التعرّف على المنتج من صورة الزبون (المرحلة 12)
 
 الزبون غالباً لا يعرف اسم المنتج، فيرسل screenshot أو صورة من منشور ويسأل: بكم؟ كم طوله؟ كيف يتركب؟ ما الألوان؟
@@ -1387,7 +1405,22 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 
 **النتيجة:** A وB وC دُمجت في المرحلة 8 بعد المراجعة. D سلّم وحدته، وتُدمج في المرحلة 9.
 
-جداول المراحل 10 إلى 14 تُكتب هنا قبل بدء كل منها.
+**جدول التوزيع للمرحلة 10 (الكتالوج):**
+
+الرئيسي يكتب أولاً الجداول والـ migration ودالة توحيد الأكواد `lib/catalog/codes.ts`، لأن كل الأجزاء تعتمد عليها. بعدها تعمل ثلاثة subagents بالتوازي، لأن كل جزء لا يعتمد على الآخر:
+
+| الـ subagent | المهمة | الملفات المسموح بتعديلها حصرياً | يعتمد على |
+| --- | --- | --- | --- |
+| E1 `catalog-products` | قالب الخصائص لكل براند (CRUD، والمفاتيح، والتحقق من القيم حسب النوع)، وبطاقات المنتجات (CRUD، والألوان بأكوادها، والصور المرتبطة، والمنتجات البديلة، والتحويل من منتج بسيط في قاعدة المعرفة) | `lib/catalog/attributes.ts`، `lib/catalog/products.ts`، `__tests__/facebook/product-attributes.test.ts`، `__tests__/facebook/catalog-products.test.ts` | الجداول و`codes.ts` (قراءة فقط) |
+| E2 `catalog-images` | الصور: النوع من البايتات، والحد، والتخزين، والحذف، والقراءة للرابط العام | `lib/catalog/images.ts`، `__tests__/facebook/product-images.test.ts` | الجداول |
+| F `catalog-prompt` | الكتالوج كما يقرأه البوت: الفهرس المختصر، والبطاقة الكاملة، واكتشاف المنتجات المذكورة في المحادثة، واختيار البطاقات، ومراجع الحارس. دوال صافية بلا قاعدة بيانات | `lib/catalog/prompt.ts`، `__tests__/facebook/catalog-prompt.test.ts` | `codes.ts` (قراءة فقط) |
+| الرئيسي | الـ APIs، والرابط العام للصور، والشاشات، وربط البوت بالكتالوج، واختيار منتج الحملة، وتبويب «المنتجات» في قاعدة المعرفة، واختبار `products.db`، والملفات المشتركة | الباقي | E1 وE2 قبل الـ APIs، وF قبل ربط البوت |
+
+الـ subagents يبدؤون من نسخة محلية فيها الجداول و`codes.ts` (فرع محلي غير مرفوع)، ولا يشغّلون `prisma generate` ولا `migrate` أبداً.
+
+**النتيجة:** E2 ثم F ثم E1 دُمجت في المرحلة 10 بعد المراجعة، كلٌّ في ملفاته وحدها، ولم يلمس أيٌّ منها ملفاً مشتركاً.
+
+جداول المراحل 11 إلى 14 تُكتب هنا قبل بدء كل منها.
 
 ---
 
@@ -1536,7 +1569,7 @@ npm run build                                          # في المراحل ا�
 | **7** ✅ | قاعدة المعرفة والبوت والتصنيف: الـ API والواجهة، وعميل Gemini، والـ prompt، والحارس، والتصنيف، وjob الرد، وأحداث `HANDOFF`، و«جرّب البوت» | `knowledge-api` و`gemini-client` و`bot-prompt` و`bot-guard` و`bot-classify` و`bot-reply` و`bot-reply.db`، و24 فحصاً حياً في المتصفح |
 | **8** ✅ | التنبيهات والتوجيه: Telegram والبريد، وjob الإرسال، وصفحة `/facebook/alerts` (التوكن، وجلب الـ Chat IDs، والمستلمون، وجدول التوجيه، والزر التجريبي، والسجل) | `alerts-routing.db` و`alerts-message` و`alerts-telegram` و`alerts-email` و`alerts-delivery` و`alerts-api`، و23 فحصاً حياً في المتصفح |
 | **9** ✅ | الرسائل الصوتية: التحميل وffmpeg والتفريغ والعرض في الـ Inbox وفي التنبيهات (والتفريغ نفسه يخدم المقابلة الصوتية في المرحلة 14) | `transcribe` و`transcription-job`، وتدفق كامل على Postgres حقيقي، و9 فحوص حية |
-| **10** | كتالوج المنتجات (القسم 6.12): قالب الخصائص لكل براند، والبطاقات، والألوان بأكوادها وصورها، والصور، وحقول الإقناع، والمنتجات البديلة، والشاشات، واستعمال البوت للكتالوج | `product-attributes` و`products-api` و`product-images` و`catalog-prompt` و`products.db`، وفحص في المتصفح |
+| **10** ✅ | كتالوج المنتجات (القسم 6.12): قالب الخصائص لكل براند، والبطاقات، والألوان بأكوادها وصورها، والصور، وحقول الإقناع، والمنتجات البديلة، والشاشات، واستعمال البوت للكتالوج | `product-attributes` و`catalog-products` و`products-api` و`product-images` و`catalog-prompt` و`products.db`، وتوسيع `bot-reply` و`campaigns-api`، و48 فحصاً حياً في المتصفح |
 | **11** | شخصية البوت وهدفه ودليل البيع (القسم 6.16): الإعدادات، والنسخة الافتراضية من الدليل، وحالة الزبون، وجمع الطلبية و`ORDER_READY`، وتوسيع الحارس | `bot-persona` و`bot-state` و`bot-guard-claims` |
 | **12** | التعرّف على المنتج من صورة الزبون (القسم 6.13) | `image-download` و`image-codes` و`image-recognition` |
 | **13** | إرسال صور الألوان والمقارنة بالـ carousel وزر «نحب هذا» (القسم 6.14) | `carousel` و`postback-parse` و`bot-actions` |
@@ -1612,7 +1645,7 @@ lib/handoff/   categories.ts
 lib/bot/       knowledge.ts  prompt.ts  guard.ts  classify.ts  answer.ts
 lib/alerts/    categories.ts  routing.ts  message.ts  telegram.ts  email.ts  dispatch.ts
 lib/ai/        env.ts  gemini.ts  transcribe.ts  audio.ts  vision.ts
-lib/catalog/   attributes.ts  products.ts  images.ts  prompt.ts  codes.ts  import/ (csv.ts  xlsx.ts  catalog.ts)
+lib/catalog/   attributes.ts  products.ts  images.ts  prompt.ts  codes.ts  bot.ts  errors.ts  import/ (csv.ts  xlsx.ts  catalog.ts)
 lib/knowledge/ suggestions.ts  posts.ts  conversations.ts  interview.ts  learning.ts
 lib/bot/       persona.ts  playbook.ts  state.ts  actions.ts   (المراحل 11 إلى 13)
 lib/facebook/  images.ts  templates-send.ts  postbacks.ts      (المراحل 12 و13)
@@ -1649,7 +1682,7 @@ app/(dashboard)/facebook/campaigns/[id]/page.tsx
 app/(dashboard)/facebook/inbox/page.tsx
 app/(dashboard)/facebook/knowledge/page.tsx
 app/(dashboard)/facebook/alerts/page.tsx
-app/(dashboard)/facebook/products/page.tsx  products/[id]/page.tsx  products/import/page.tsx  review/page.tsx
+app/(dashboard)/facebook/products/page.tsx  products/new/page.tsx  products/[id]/page.tsx  products/attributes/page.tsx  products/import/page.tsx  review/page.tsx
 app/api/catalog/...    app/api/knowledge/suggestions/...    app/api/public/media/[publicId]/route.ts
 components/facebook/*.tsx
 components/agency/*.tsx

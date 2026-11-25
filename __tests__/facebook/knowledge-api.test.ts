@@ -13,6 +13,8 @@ const db = vi.hoisted(() => ({
   botSettings: { findUnique: vi.fn(), upsert: vi.fn() },
   knowledgeEntry: { findMany: vi.fn(), count: vi.fn(), create: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   facebookPage: { findMany: vi.fn() },
+  product: { findMany: vi.fn() },
+  productAttribute: { findMany: vi.fn() },
 }));
 const ai = vi.hoisted(() => ({ generateJson: vi.fn() }));
 
@@ -65,6 +67,8 @@ beforeEach(() => {
   db.knowledgeEntry.updateMany.mockResolvedValue({ count: 1 });
   db.knowledgeEntry.deleteMany.mockResolvedValue({ count: 1 });
   db.facebookPage.findMany.mockResolvedValue([{ id: "fp_1", name: "Lina Outlet", status: "ACTIVE", botEnabled: true }]);
+  db.product.findMany.mockResolvedValue([]);
+  db.productAttribute.findMany.mockResolvedValue([]);
 });
 
 afterEach(() => {

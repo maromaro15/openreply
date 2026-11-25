@@ -5,6 +5,7 @@ import {
   createCampaign,
   listCampaigns,
   workspaceOwnsPage,
+  workspaceOwnsProduct,
 } from "@/lib/facebook/campaigns";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,9 @@ export async function POST(request: NextRequest) {
   }
   if (!(await workspaceOwnsPage(context.workspaceId, parsed.data.facebookPageId))) {
     return jsonError(400, "Choose a connected Page of this brand.");
+  }
+  if (!(await workspaceOwnsProduct(context.workspaceId, parsed.data.productId))) {
+    return jsonError(400, "Choose a product of this brand.");
   }
   const campaign = await createCampaign(context.workspaceId, parsed.data);
   return NextResponse.json({ success: true, data: { campaign } }, { status: 201 });

@@ -37,6 +37,8 @@ export const campaignInputSchema = z
     publicReplyEnabled: z.boolean().default(false),
     publicReplyMessages: z.array(z.string().trim().min(1).max(1000)).max(10).default([]),
     botContext: z.string().trim().max(2000).nullable().optional(),
+    /** A catalog product of this brand: the bot gets its full card. */
+    productId: z.string().trim().max(64).nullable().optional(),
     isActive: z.boolean().default(true),
   })
   .superRefine((value, ctx) => {
@@ -73,8 +75,23 @@ export function campaignData(input: CampaignInput) {
     publicReplyEnabled: input.publicReplyEnabled,
     publicReplyMessages: input.publicReplyEnabled ? input.publicReplyMessages : [],
     botContext: input.botContext?.trim() || null,
+    productId: input.productId || null,
     isActive: input.isActive,
   };
+}
+
+/**
+ * The product must be this brand's. Any status: a campaign keeps its product
+ * when it is archived or back in draft (so the campaign can still be saved),
+ * and the bot reads active products only.
+ */
+export async function workspaceOwnsProduct(workspaceId: string, productId: string | null | undefined): Promise<boolean> {
+  if (!productId) return true;
+  const product = await prisma.product.findFirst({
+    where: { id: productId, workspaceId },
+    select: { id: true },
+  });
+  return Boolean(product);
 }
 
 /** The Page must be this brand's and still connected. */
