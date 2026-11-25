@@ -14,6 +14,7 @@ import { processBotReplyJob } from "./bot-reply";
 import { recordFacebookWorkerAlert } from "./health";
 import { processMessageJob } from "./messages";
 import { processTranscribeJob } from "./transcription";
+import { processRecognizeJob } from "./image-recognition";
 import {
   ALERT_SEND_JOB,
   FACEBOOK_QUEUE,
@@ -21,12 +22,14 @@ import {
   FB_COMMENT_JOB,
   FB_MESSAGE_JOB,
   FB_TRANSCRIBE_JOB,
+  FB_RECOGNIZE_JOB,
   type AlertSendJob,
   type FacebookBotReplyJob,
   type FacebookCommentJob,
   type FacebookJob,
   type FacebookMessageJob,
   type FacebookTranscribeJob,
+  type FacebookRecognizeJob,
 } from "./queue";
 
 export async function dispatchFacebookJob(job: Job<FacebookJob>): Promise<string> {
@@ -39,6 +42,8 @@ export async function dispatchFacebookJob(job: Job<FacebookJob>): Promise<string
       return processBotReplyJob(job as Job<FacebookBotReplyJob>);
     case FB_TRANSCRIBE_JOB:
       return processTranscribeJob(job as Job<FacebookTranscribeJob>);
+    case FB_RECOGNIZE_JOB:
+      return processRecognizeJob(job as Job<FacebookRecognizeJob>);
     case ALERT_SEND_JOB:
       return processAlertJob(job as Job<AlertSendJob>);
     default:

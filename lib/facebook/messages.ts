@@ -29,6 +29,7 @@ import { getMessengerProfileName } from "./graph";
 import { takeOverConversation } from "./inbox";
 import { pageToken } from "./pages";
 import { queueTranscription } from "./transcription";
+import { IMAGE, parseImageAnalysis, queueImageRecognition } from "./image-recognition";
 import {
   botReplyJobId,
   FB_BOT_REPLY_JOB,
@@ -70,6 +71,7 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
   const attachment = primaryAttachment(data);
 
   const isVoice = attachment?.type === "audio";
+  const isImage = attachment?.type === IMAGE;
   let stored: { id: string };
   try {
     stored = await prisma.facebookMessage.create({
@@ -83,6 +85,7 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
         attachmentType: attachment?.type ?? null,
         attachmentUrl: attachment?.url ?? null,
         transcriptStatus: isVoice ? "PENDING" : null,
+        ...(isImage ? { imageAnalysis: { status: "PENDING" } } : {}),
         sentAt,
       },
       select: { id: true },
@@ -102,6 +105,8 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
 
   // Transcribed right away (the audio link expires); the bot waits for it.
   if (isVoice) await queueTranscription(stored.id);
+  // Read right away too (the photo's link expires); the bot waits for it.
+  if (isImage) await queueImageRecognition(stored.id);
   await scheduleBotReply(page, conversation, data.mid);
 
   // The person's name, once: the comment gave it when the thread started
@@ -135,11 +140,14 @@ async function resumeFollowUps(
 ): Promise<void> {
   const existing = await prisma.facebookMessage.findUnique({
     where: { mid },
-    select: { id: true, conversationId: true, attachmentType: true, transcriptStatus: true },
+    select: { id: true, conversationId: true, attachmentType: true, transcriptStatus: true, imageAnalysis: true },
   });
   if (!existing || existing.conversationId !== conversation.id) return;
   if (existing.attachmentType === "audio" && existing.transcriptStatus === "PENDING") {
     await queueTranscription(existing.id);
+  }
+  if (existing.attachmentType === IMAGE && parseImageAnalysis(existing.imageAnalysis)?.status === "PENDING") {
+    await queueImageRecognition(existing.id);
   }
   await scheduleBotReply(page, conversation, mid);
 }

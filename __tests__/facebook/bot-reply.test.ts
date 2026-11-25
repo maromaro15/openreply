@@ -668,3 +668,48 @@ describe("the customer's state and the order (phase 11)", () => {
     expectHandoff("COMPLAINT", "الكولي وصل مكسور");
   });
 });
+
+describe("a customer's photo (phase 12)", () => {
+  const photo = (imageAnalysis: unknown, text: string | null = "بشحال؟") =>
+    inbound("m_in_2", { text, attachmentType: "image", attachmentUrl: "https://cdn/p.jpg", imageAnalysis });
+  const product = {
+    id: "prod_wp", name: "Papier peint 3D", code: "WP-12", price: "1200 DA", available: true, landingUrl: null,
+    description: null, howToUse: null, attributes: {}, strengths: ["يتغسل بالماء"], comparisons: null, suitableFor: null,
+    objections: [], variants: [], related: [],
+  };
+
+  beforeEach(() => {
+    db.product.findMany.mockResolvedValue([product]);
+  });
+
+  it("waits while the photo is being read", async () => {
+    s.pending = [photo({ status: "PENDING" })];
+    await expect(processBotReplyJob(job())).resolves.toBe("waiting_transcript");
+    expect(queue.add).toHaveBeenCalledWith(
+      "fb-bot-reply",
+      expect.objectContaining({ waits: 1 }),
+      expect.objectContaining({ jobId: `${botReplyJobId("conv_1", "m_in_2")}_w1` })
+    );
+    expect(ai.generateJson).not.toHaveBeenCalled();
+  });
+
+  it("answers from the card of the product it recognised", async () => {
+    s.pending = [photo({ status: "DONE", recognition: { kind: "match", via: "code", productId: "prod_wp", productName: "Papier peint 3D", variant: null, codes: ["WP 12"] } })];
+    s.history = [...s.pending];
+    modelSays({ customer_state: "PRICE_ONLY", handoff: false, category: "NONE", reason: "", reply: "سعرو 1200 DA", order: {} });
+    await expect(processBotReplyJob(job())).resolves.toBe("replied");
+    const { systemInstruction, contents } = ai.generateJson.mock.calls[0][0];
+    expect(contents[0].parts[0].text).toContain("[sent a photo] The customer's photo shows the product «Papier peint 3D»");
+    expect(contents[0].parts[0].text).toContain("بشحال؟");
+    expect(systemInstruction).toContain("#### Papier peint 3D");
+  });
+
+  it("hands a photo it could not read to a person", async () => {
+    s.pending = [photo({ status: "FAILED", error: "The photo is too large." })];
+    await expect(processBotReplyJob(job())).resolves.toBe("handed_off");
+    expect(db.facebookConversation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ handoffCategory: "OTHER", handoffReason: SYSTEM_REASONS.attachment }) })
+    );
+    expect(ai.generateJson).not.toHaveBeenCalled();
+  });
+});

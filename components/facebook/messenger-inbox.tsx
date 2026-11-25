@@ -185,6 +185,24 @@ function MessageBubble({ message, fb, locale, now }: { message: ThreadMessage; f
         {message.attachmentType === "audio" && message.transcriptStatus === "FAILED" && message.error && (
           <p className="mt-0.5 break-words text-[10px] opacity-70">{message.error}</p>
         )}
+        {message.photo && (
+          <p className="mt-1 break-words text-xs opacity-90" dir="auto">
+            {message.photo.status === "PENDING"
+              ? t("Reading the photo…")
+              : message.photo.status === "FAILED"
+                ? t("Could not read the photo")
+                : message.photo.kind === "match"
+                  ? t("Recognised by the bot: {name}", { name: message.photo.names[0] ?? "" })
+                  : message.photo.kind === "ambiguous"
+                    ? t("Could be: {names}", { names: message.photo.names.join(" / ") })
+                    : message.photo.kind === "unsure"
+                      ? t("Maybe: {name}, to confirm", { name: message.photo.names[0] ?? "" })
+                      : t("Not recognised")}
+          </p>
+        )}
+        {message.photo?.status === "FAILED" && message.photo.error && (
+          <p className="mt-0.5 break-words text-[10px] opacity-70">{message.photo.error}</p>
+        )}
         {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
         <p
           className={`mt-1 flex flex-wrap gap-x-2 text-[10px] ${

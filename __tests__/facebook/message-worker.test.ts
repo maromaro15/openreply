@@ -244,6 +244,28 @@ describe("a message from a person", () => {
     );
   });
 
+  it("stores a photo as being read, reads it at once, and resumes it after a crash", async () => {
+    await processMessageJob(job({ mid: "m_photo", text: "بشحال هادي؟", attachments: [{ type: "image", url: "https://cdn/p.jpg" }] }));
+    expect(db.facebookMessage.create.mock.calls[0][0].data).toMatchObject({
+      attachmentType: "image",
+      attachmentUrl: "https://cdn/p.jpg",
+      imageAnalysis: { status: "PENDING" },
+    });
+    expect(queue.add).toHaveBeenCalledWith("fb-recognize", { messageId: "msg_1" }, expect.objectContaining({ jobId: "fbi_msg_1" }));
+
+    vi.clearAllMocks();
+    db.facebookMessage.create.mockRejectedValue(uniqueViolation());
+    db.facebookMessage.findUnique.mockResolvedValue({
+      id: "msg_p",
+      conversationId: "conv_1",
+      attachmentType: "image",
+      transcriptStatus: null,
+      imageAnalysis: { status: "PENDING" },
+    });
+    await processMessageJob(job({ mid: "m_photo", attachments: [{ type: "image", url: "https://cdn/p.jpg" }] }));
+    expect(queue.add).toHaveBeenCalledWith("fb-recognize", { messageId: "msg_p" }, expect.objectContaining({ jobId: "fbi_msg_p" }));
+  });
+
   it("a redelivered voice message resumes what a crash left undone, and nothing twice", async () => {
     db.facebookMessage.create.mockRejectedValue(uniqueViolation());
     db.facebookMessage.findUnique.mockResolvedValue({

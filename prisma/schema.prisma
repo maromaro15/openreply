@@ -732,6 +732,8 @@ model FacebookMessage {
   sentByUserId     String?
   /// On a customer's message the bot answered: the customer's state the model read.
   customerState    CustomerState?
+  /// A customer's photo: { status: PENDING | DONE | FAILED, recognition, error } (phase 12).
+  imageAnalysis    Json?
   sentAt           DateTime                  @default(now())
   createdAt        DateTime                  @default(now())
 

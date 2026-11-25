@@ -25,6 +25,8 @@ import { getBotSettings, listKnowledge, type BotSettingsView } from "@/lib/bot/k
 import { mergeOrder, parseOrderDraft, type OrderDraft } from "@/lib/bot/order";
 import { goalCollectsOrder, type CustomerStateValue } from "@/lib/bot/persona";
 import { isOrderReady } from "@/lib/bot/persona-store";
+import { recognitionPromptLine } from "@/lib/catalog/recognize";
+import { IMAGE, parseImageAnalysis, recognizedProductIds } from "./image-recognition";
 import { loadCatalogForBot, rememberFocus } from "@/lib/catalog/bot";
 import {
   buildCatalogSection,
@@ -84,6 +86,14 @@ export function toPromptMessages(messages: FacebookMessage[]): PromptMessage[] {
             ? { from: "customer", text: message.transcript, voice: true }
             : { from: "customer", text: "[sent a voice message that could not be transcribed]" }
         );
+        if (message.text) result.push({ from: "customer", text: message.text });
+        continue;
+      }
+      if (message.attachmentType === IMAGE) {
+        // What the code read from the photo, in the line the model must act on.
+        const analysis = parseImageAnalysis(message.imageAnalysis);
+        const seen = analysis?.status === "DONE" ? ` ${recognitionPromptLine(analysis.recognition)}` : "";
+        result.push({ from: "customer", text: `[sent a photo]${seen}` });
         if (message.text) result.push({ from: "customer", text: message.text });
         continue;
       }
@@ -284,10 +294,10 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
   // A voice message still being transcribed: come back once it is, rather
   // than answer without it. After the last wait it counts as not transcribed.
   const waits = job.data.waits ?? 0;
-  if (
-    waits < MAX_TRANSCRIPT_WAITS &&
-    pending.some((message) => message.attachmentType === AUDIO && message.transcriptStatus === "PENDING")
-  ) {
+  const stillReading = (message: FacebookMessage) =>
+    (message.attachmentType === AUDIO && message.transcriptStatus === "PENDING") ||
+    (message.attachmentType === IMAGE && parseImageAnalysis(message.imageAnalysis)?.status === "PENDING");
+  if (waits < MAX_TRANSCRIPT_WAITS && pending.some(stillReading)) {
     await getFacebookQueue().add(
       FB_BOT_REPLY_JOB,
       { ...job.data, waits: waits + 1 },
@@ -299,7 +309,15 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
   const handoffBy = (category: "OTHER" | "AUDIO_FAILED", reason: string) =>
     handOff(conversation, triggerMid, { kind: "handoff", category, reason, source: "system" }, settings);
 
-  if (pending.some((message) => message.attachmentType && ![STICKER, AUDIO].includes(message.attachmentType))) {
+  // A photo the code could read goes to the model; a video, a file, or a
+  // photo that could not be read goes to a person.
+  if (
+    pending.some(
+      (message) =>
+        (message.attachmentType && ![STICKER, AUDIO, IMAGE].includes(message.attachmentType)) ||
+        (message.attachmentType === IMAGE && parseImageAnalysis(message.imageAnalysis)?.status !== "DONE")
+    )
+  ) {
     return handoffBy("OTHER", SYSTEM_REASONS.attachment);
   }
   if (pending.some((message) => message.attachmentType === AUDIO && message.transcriptStatus !== "DONE")) {
@@ -330,7 +348,14 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
   // alternative the bot suggested gets its card on the next answer). Their
   // full cards go to the model.
   const messages = toPromptMessages(history.reverse());
-  const mentioned = mentionedProductIds(catalog.products, messages.map((message) => message.text));
+  // The products of the customer's photos first: the most recent signals.
+  const fromPhotos = history.flatMap((message) => recognizedProductIds(parseImageAnalysis(message.imageAnalysis)));
+  const mentioned = [
+    ...new Set([
+      ...fromPhotos.reverse(),
+      ...mentionedProductIds(catalog.products, messages.map((message) => message.text)),
+    ]),
+  ].filter((id) => catalog.products.some((product) => product.id === id));
   const focus = await rememberFocus(conversation.id, mentioned, conversation.focusProductIds);
   const cards = selectCardProducts(
     catalog.products,

@@ -76,6 +76,13 @@ export interface FacebookTranscribeJob {
   messageId: string;
 }
 
+export const FB_RECOGNIZE_JOB = "fb-recognize";
+
+/** A customer's photo to read and recognise: a FacebookMessage row. */
+export interface FacebookRecognizeJob {
+  messageId: string;
+}
+
 export const ALERT_SEND_JOB = "alert-send";
 
 /** One handoff alert to one recipient: an AlertDelivery row. */
@@ -88,6 +95,7 @@ export type FacebookJob =
   | FacebookMessageJob
   | FacebookBotReplyJob
   | FacebookTranscribeJob
+  | FacebookRecognizeJob
   | AlertSendJob;
 
 let queue: Queue<FacebookJob> | null = null;
@@ -124,6 +132,10 @@ export function commentJobId(pageId: string, commentId: string): string {
 
 export function transcribeJobId(messageId: string): string {
   return `fbt_${jobIdPart(messageId)}`;
+}
+
+export function recognizeJobId(messageId: string): string {
+  return `fbi_${jobIdPart(messageId)}`;
 }
 
 export function alertJobId(deliveryId: string): string {

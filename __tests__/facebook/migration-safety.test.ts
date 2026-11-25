@@ -20,6 +20,7 @@ const KNOWN_BRANCH_MIGRATIONS = [
   FIRST_BRANCH_MIGRATION,
   "20261126120000_product_catalog",
   "20261127120000_bot_persona",
+  "20261128120000_image_recognition",
 ];
 
 const directories = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })

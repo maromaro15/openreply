@@ -543,5 +543,12 @@
   "The reply promised a gift that is not in the knowledge base.": "الرد وعد بهدية غير موجودة في قاعدة المعرفة.",
   "The reply claimed scarcity or urgency that is not in the knowledge base.": "الرد ادّعى ندرة أو استعجالاً غير موجودين في قاعدة المعرفة.",
   "The reply claimed the product is the best, which is not in the knowledge base.": "الرد ادّعى أن المنتج هو الأفضل، وهذا غير موجود في قاعدة المعرفة.",
-  "The reply promised a guarantee or a refund that is not in the knowledge base.": "الرد وعد بضمان أو استرجاع للمال غير موجود في قاعدة المعرفة."
+  "The reply promised a guarantee or a refund that is not in the knowledge base.": "الرد وعد بضمان أو استرجاع للمال غير موجود في قاعدة المعرفة.",
+  "Reading the photo…": "جارٍ قراءة الصورة…",
+  "Could not read the photo": "تعذّرت قراءة الصورة",
+  "Recognised by the bot: {name}": "تعرّف البوت على: {name}",
+  "Could be: {names}": "قد يكون: {names}",
+  "Maybe: {name}, to confirm": "ربما: {name}، للتأكيد",
+  "Not recognised": "لم يتعرّف عليه البوت",
+  "The photo came without a link.": "وصلت الصورة بلا رابط."
 }

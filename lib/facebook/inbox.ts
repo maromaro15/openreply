@@ -20,6 +20,7 @@ import {
 import { prisma } from "@/lib/db/client";
 import { HANDOFF_CATEGORIES } from "@/lib/handoff/categories";
 import { DEFAULT_ORDER_FIELDS, orderSummary, parseOrderDraft, type OrderFieldValue } from "@/lib/bot/order";
+import { IMAGE, parseImageAnalysis } from "./image-recognition";
 import { humanReplyPolicy, standardWindowEndsAt } from "./window";
 
 // ─── Who answers ────────────────────────────────────────────────────────────
@@ -200,8 +201,30 @@ function personLabel(person: Person | undefined): string | null {
   return person ? person.name || person.email : null;
 }
 
+/** What the bot read from a customer's photo, for the line under it. */
+function photoView(message: FacebookMessage) {
+  if (message.attachmentType !== IMAGE) return null;
+  const analysis = parseImageAnalysis(message.imageAnalysis);
+  if (!analysis) return null;
+  if (analysis.status === "PENDING") return { status: "PENDING" as const, kind: null, names: [] as string[], error: null };
+  if (analysis.status === "FAILED") return { status: "FAILED" as const, kind: null, names: [] as string[], error: analysis.error };
+  const { recognition } = analysis;
+  const names =
+    recognition.kind === "match"
+      ? [recognition.variant ? `${recognition.productName} · ${recognition.variant.code}` : recognition.productName]
+      : recognition.kind === "unsure"
+        ? [recognition.productName]
+        : recognition.kind === "ambiguous"
+          ? recognition.options.map((option) =>
+              option.variantCode ? `${option.productName} · ${option.variantCode}` : option.productName
+            )
+          : [];
+  return { status: "DONE" as const, kind: recognition.kind, names, error: null };
+}
+
 export function serializeMessage(message: FacebookMessage, people: Map<string, Person> = new Map()) {
   return {
+    photo: photoView(message),
     id: message.id,
     direction: message.direction,
     author: message.author,

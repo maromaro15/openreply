@@ -115,7 +115,7 @@ describe("the conversation", () => {
     ] as never);
     expect(messages).toEqual([
       { from: "customer", text: "salam" },
-      { from: "customer", text: "[sent a image]" },
+      { from: "customer", text: "[sent a photo]" },
       { from: "customer", text: "بشحال", voice: true },
       { from: "page", by: "bot", text: "4500 DA" },
       { from: "page", by: "person", text: "نعم" },
