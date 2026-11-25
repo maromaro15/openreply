@@ -29,7 +29,31 @@ export interface FacebookCommentJob {
   slotAt?: number;
 }
 
-export type FacebookJob = FacebookCommentJob;
+export const FB_MESSAGE_JOB = "fb-message";
+
+/**
+ * A Messenger message on a connected Page: one a person sent ("message"),
+ * or one the Page sent, delivered back through message_echoes ("echo").
+ */
+export interface FacebookMessageJob {
+  facebookPageId: string;
+  pageId: string;
+  kind: "message" | "echo";
+  /** The person: the sender of a message, the recipient of an echo. */
+  psid: string;
+  mid: string;
+  text?: string;
+  attachments: { type: string; url?: string; stickerId?: string }[];
+  isSticker?: boolean;
+  replyToMid?: string;
+  /** Echoes only. */
+  appId?: string;
+  metadata?: string;
+  /** ISO time Meta gives for the message. */
+  sentAt: string;
+}
+
+export type FacebookJob = FacebookCommentJob | FacebookMessageJob;
 
 let queue: Queue<FacebookJob> | null = null;
 
@@ -61,4 +85,9 @@ export function jobIdPart(value: string): string {
 
 export function commentJobId(pageId: string, commentId: string): string {
   return `fbc_${jobIdPart(pageId)}_${jobIdPart(commentId)}`;
+}
+
+/** Message IDs ("m_…") may hold any character; always encoded. */
+export function messageJobId(pageId: string, mid: string, kind: FacebookMessageJob["kind"] = "message"): string {
+  return `${kind === "echo" ? "fbe" : "fbm"}_${jobIdPart(pageId)}_${Buffer.from(mid).toString("base64url")}`;
 }

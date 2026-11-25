@@ -95,6 +95,22 @@ export function landingUrlFor(campaign: Pick<FacebookCampaign, "id" | "name" | "
   });
 }
 
+/** The private reply text for a commenter, as the campaign renders it. */
+export function privateReplyText(
+  campaign: Pick<FacebookCampaign, "privateReplyMessage">,
+  commenterName: string | null | undefined
+): string {
+  return renderTemplate(campaign.privateReplyMessage, { name: firstName(commenterName) });
+}
+
+/** How the private reply reads in the inbox: the message, then its link. */
+export function privateReplyTranscript(
+  campaign: Pick<FacebookCampaign, "id" | "name" | "landingUrl" | "addUtm" | "privateReplyMessage">,
+  commenterName: string | null | undefined
+): string {
+  return `${privateReplyText(campaign, commenterName)}\n${landingUrlFor(campaign)}`;
+}
+
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
 }
@@ -326,7 +342,7 @@ export async function processCommentJob(job: Job<FacebookCommentJob>): Promise<C
     return "nothing_to_do";
   }
 
-  const text = renderTemplate(campaign.privateReplyMessage, { name: firstName(data.commenterName) });
+  const text = privateReplyText(campaign, data.commenterName);
   try {
     const result = await sendWithFallback(page, token, log, text, campaign);
     const sentAt = new Date();
@@ -350,7 +366,7 @@ export async function processCommentJob(job: Job<FacebookCommentJob>): Promise<C
         commenterName: data.commenterName ?? log.commenterName,
         campaignId: campaign.id,
         commentId: log.commentId,
-        text: `${text}\n${landingUrlFor(campaign)}`,
+        text: privateReplyTranscript(campaign, data.commenterName),
         messageId: result.message_id,
         sentAt,
       });
@@ -362,8 +378,10 @@ export async function processCommentJob(job: Job<FacebookCommentJob>): Promise<C
 
     if (fbError.kind === "ambiguous") {
       // Meta may have delivered it. The slot stays used and nothing retries.
-      await prisma.facebookCommentLog.update({
-        where: { id: log.id },
+      // Its echo may already have proven delivery (lib/facebook/messages.ts):
+      // SENT is never downgraded.
+      await prisma.facebookCommentLog.updateMany({
+        where: { id: log.id, status: { not: "SENT" } },
         data: { status: "UNCONFIRMED", errorMessage: fbError.message },
       });
       return "unconfirmed";

@@ -10,12 +10,22 @@ import { getRedisConnection } from "@/lib/queue/client";
 import { processCommentJob } from "./comments";
 import { getFacebookWorkerConcurrency } from "./env";
 import { recordFacebookWorkerAlert } from "./health";
-import { FACEBOOK_QUEUE, FB_COMMENT_JOB, type FacebookCommentJob, type FacebookJob } from "./queue";
+import { processMessageJob } from "./messages";
+import {
+  FACEBOOK_QUEUE,
+  FB_COMMENT_JOB,
+  FB_MESSAGE_JOB,
+  type FacebookCommentJob,
+  type FacebookJob,
+  type FacebookMessageJob,
+} from "./queue";
 
 export async function dispatchFacebookJob(job: Job<FacebookJob>): Promise<string> {
   switch (job.name) {
     case FB_COMMENT_JOB:
       return processCommentJob(job as Job<FacebookCommentJob>);
+    case FB_MESSAGE_JOB:
+      return processMessageJob(job as Job<FacebookMessageJob>);
     default:
       console.warn(`[Facebook worker] Unknown job "${job.name}" (${job.id}) skipped`);
       return "unknown_job";

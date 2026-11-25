@@ -234,8 +234,9 @@ describe("sending the private reply", () => {
   it("records an ambiguous outcome as UNCONFIRMED, keeps the slot and never retries", async () => {
     graph.sendPrivateReply.mockRejectedValue(new FacebookApiError("fetch failed", "ambiguous"));
     await expect(processCommentJob(job())).resolves.toBe("unconfirmed");
-    expect(db.facebookCommentLog.update).toHaveBeenLastCalledWith({
-      where: { id: "log_1" },
+    // Never over a SENT its echo may already have recorded.
+    expect(db.facebookCommentLog.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "log_1", status: { not: "SENT" } },
       data: { status: "UNCONFIRMED", errorMessage: "fetch failed" },
     });
     expect(limiter.releaseDMSlot).not.toHaveBeenCalled();

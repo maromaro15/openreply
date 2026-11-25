@@ -77,7 +77,9 @@ export default function TopBar({
             ? t("{count} accounts", { count: instagramAccountCount })
             : `@${instagramUsername}`}
         </p>
-      ) : (
+      ) : moduleKey ? null : (
+        // Not on the Facebook and agency screens: a brand there may have no
+        // Instagram account at all, and the button would only mislead.
         <a
           href="/api/instagram/connect"
           className="shrink-0 whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded bg-accent text-white hover:bg-accent-hover"

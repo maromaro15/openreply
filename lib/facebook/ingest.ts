@@ -5,26 +5,58 @@
  */
 import type { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
-import { parsePageWebhook } from "./webhook";
-import { commentJobId, FB_COMMENT_JOB, getFacebookQueue } from "./queue";
+import { parsePageWebhook, type PageEchoEvent, type PageMessageEvent } from "./webhook";
+import {
+  commentJobId,
+  FB_COMMENT_JOB,
+  FB_MESSAGE_JOB,
+  getFacebookQueue,
+  messageJobId,
+  type FacebookMessageJob,
+} from "./queue";
 
 export interface IngestResult {
   pages: number;
   comments: number;
+  messages: number;
+  echoes: number;
 }
 
 type RawEntry = { id?: unknown };
 
+const NOTHING: IngestResult = { pages: 0, comments: 0, messages: 0, echoes: 0 };
+
+function messageJob(
+  page: { id: string; pageId: string },
+  event: PageMessageEvent | PageEchoEvent,
+  kind: FacebookMessageJob["kind"]
+): FacebookMessageJob {
+  return {
+    facebookPageId: page.id,
+    pageId: page.pageId,
+    kind,
+    psid: event.psid,
+    mid: event.mid,
+    ...(event.text ? { text: event.text } : {}),
+    attachments: event.attachments,
+    ...("isSticker" in event && event.isSticker ? { isSticker: true } : {}),
+    ...("replyToMid" in event && event.replyToMid ? { replyToMid: event.replyToMid } : {}),
+    ...("appId" in event && event.appId ? { appId: event.appId } : {}),
+    ...("metadata" in event && event.metadata !== undefined ? { metadata: event.metadata } : {}),
+    sentAt: event.sentAt.toISOString(),
+  };
+}
+
 export async function ingestPageWebhook(payload: unknown): Promise<IngestResult> {
   const parsed = parsePageWebhook(payload);
-  if (parsed.pageIds.length === 0) return { pages: 0, comments: 0 };
+  if (parsed.pageIds.length === 0) return NOTHING;
 
   // Only connected Pages: nothing is stored for a Page nobody connected.
   const pages = await prisma.facebookPage.findMany({
     where: { pageId: { in: parsed.pageIds }, status: { not: "DISCONNECTED" } },
     select: { id: true, pageId: true, workspaceId: true, status: true },
   });
-  if (pages.length === 0) return { pages: 0, comments: 0 };
+  if (pages.length === 0) return NOTHING;
   const byPageId = new Map(pages.map((page) => [page.pageId, page]));
 
   const now = new Date();
@@ -50,8 +82,28 @@ export async function ingestPageWebhook(payload: unknown): Promise<IngestResult>
   }
 
   let queued = 0;
+  let messages = 0;
+  let echoes = 0;
   try {
     const queue = getFacebookQueue();
+    // Messages and echoes are kept for any connected Page, so the inbox
+    // shows them even while its token waits to be renewed.
+    for (const message of parsed.messages) {
+      const page = byPageId.get(message.pageId);
+      if (!page) continue;
+      await queue.add(FB_MESSAGE_JOB, messageJob(page, message, "message"), {
+        jobId: messageJobId(page.pageId, message.mid, "message"),
+      });
+      messages += 1;
+    }
+    for (const echo of parsed.echoes) {
+      const page = byPageId.get(echo.pageId);
+      if (!page) continue;
+      await queue.add(FB_MESSAGE_JOB, messageJob(page, echo, "echo"), {
+        jobId: messageJobId(page.pageId, echo.mid, "echo"),
+      });
+      echoes += 1;
+    }
     for (const comment of parsed.comments) {
       const page = byPageId.get(comment.pageId);
       // A Page whose token died cannot answer; its status says so in the UI.
@@ -89,5 +141,5 @@ export async function ingestPageWebhook(payload: unknown): Promise<IngestResult>
     where: { id: { in: [...events.values()] } },
     data: { status: "PROCESSED", processedAt: new Date() },
   });
-  return { pages: pages.length, comments: queued };
+  return { pages: pages.length, comments: queued, messages, echoes };
 }
