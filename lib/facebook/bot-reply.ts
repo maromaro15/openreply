@@ -29,10 +29,13 @@ import { messageMetadata } from "./echoes";
 import { FacebookApiError, sendMessage } from "./graph";
 import { handOffConversation } from "./handoff";
 import { pageToken } from "./pages";
-import type { FacebookBotReplyJob } from "./queue";
+import { botReplyJobId, FB_BOT_REPLY_JOB, getFacebookQueue, type FacebookBotReplyJob } from "./queue";
 import { isBotWindowOpen } from "./window";
 
 export const MAX_BOT_REPLIES_PER_HOUR = 20;
+/** A voice message being transcribed: wait for it, 5 s at a time, 3 minutes at most. */
+export const TRANSCRIPT_WAIT_MS = 5_000;
+export const MAX_TRANSCRIPT_WAITS = 36;
 const HOUR_MS = 60 * 60 * 1000;
 /** Attachments the bot cannot read: a person looks at them. */
 const STICKER = "sticker";
@@ -47,6 +50,7 @@ export type BotReplyOutcome =
   | "window_closed"
   | "nothing_to_answer"
   | "sticker_only"
+  | "waiting_transcript"
   | "replied"
   | "handed_off"
   | "unconfirmed"
@@ -239,6 +243,21 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
   const pending = await pendingMessages(conversationId);
   if (pending.length === 0) return "nothing_to_answer";
   if (pending.every((message) => !message.text && message.attachmentType === STICKER)) return "sticker_only";
+
+  // A voice message still being transcribed: come back once it is, rather
+  // than answer without it. After the last wait it counts as not transcribed.
+  const waits = job.data.waits ?? 0;
+  if (
+    waits < MAX_TRANSCRIPT_WAITS &&
+    pending.some((message) => message.attachmentType === AUDIO && message.transcriptStatus === "PENDING")
+  ) {
+    await getFacebookQueue().add(
+      FB_BOT_REPLY_JOB,
+      { ...job.data, waits: waits + 1 },
+      { jobId: `${botReplyJobId(conversationId, triggerMid)}_w${waits + 1}`, delay: TRANSCRIPT_WAIT_MS }
+    );
+    return "waiting_transcript";
+  }
 
   const handoffBy = (category: "OTHER" | "AUDIO_FAILED", reason: string) =>
     handOff(conversation, triggerMid, { kind: "handoff", category, reason, source: "system" }, settings);

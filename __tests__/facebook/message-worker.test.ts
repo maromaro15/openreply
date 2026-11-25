@@ -135,8 +135,10 @@ describe("a message from a person", () => {
         author: "CUSTOMER",
         mid: "m_in_1",
         text: "شحال السعر؟",
+        transcriptStatus: null,
         sentAt: new Date("2026-11-25T11:59:00.000Z"),
       }),
+      select: { id: true },
     });
     expect(db.facebookConversation.update).toHaveBeenCalledWith({
       where: { id: "conv_1" },
@@ -231,8 +233,34 @@ describe("a message from a person", () => {
     expect(db.facebookMessage.create.mock.calls[0][0].data).toMatchObject({
       attachmentType: "audio",
       attachmentUrl: "https://cdn/a.mp4",
+      transcriptStatus: "PENDING",
     });
     expect(conversationUpdatesOf("lastMessageText")[0].data.lastMessageText).toBe("🎤");
+    // Transcribed at once: Messenger's audio links expire.
+    expect(queue.add).toHaveBeenCalledWith(
+      "fb-transcribe",
+      { messageId: "msg_1" },
+      expect.objectContaining({ jobId: "fbt_msg_1" })
+    );
+  });
+
+  it("a redelivered voice message resumes what a crash left undone, and nothing twice", async () => {
+    db.facebookMessage.create.mockRejectedValue(uniqueViolation());
+    db.facebookMessage.findUnique.mockResolvedValue({
+      id: "msg_v",
+      conversationId: "conv_1",
+      attachmentType: "audio",
+      transcriptStatus: "PENDING",
+    });
+    await expect(
+      processMessageJob(job({ mid: "m_voice", text: undefined, attachments: [{ type: "audio", url: "https://cdn/v.mp4" }] }))
+    ).resolves.toBe("duplicate");
+    expect(queue.add).toHaveBeenCalledWith("fb-transcribe", { messageId: "msg_v" }, expect.objectContaining({ jobId: "fbt_msg_v" }));
+
+    queue.add.mockClear();
+    db.facebookMessage.findUnique.mockResolvedValue({ id: "msg_t", conversationId: "conv_1", attachmentType: null, transcriptStatus: null });
+    await processMessageJob(job());
+    expect(queue.add).not.toHaveBeenCalledWith("fb-transcribe", expect.anything(), expect.anything());
   });
 
   it("names the first attachment for the inbox", () => {

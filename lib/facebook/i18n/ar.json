@@ -344,5 +344,6 @@
   "The bot cannot write there: it was blocked or removed from the group.": "البوت لا يستطيع الكتابة هناك: تم حظره أو إزالته من المجموعة.",
   "The Telegram bot token is not valid anymore: save it again.": "توكن بوت Telegram لم يعد صالحاً: احفظه من جديد.",
   "The email address was refused.": "عنوان البريد مرفوض.",
-  "This bot has a webhook at another service, so its recent chats cannot be read here. Enter the chat ID by hand.": "لهذا البوت webhook عند خدمة أخرى، لذلك لا يمكن قراءة محادثاته الأخيرة من هنا. أدخل معرّف المحادثة يدوياً."
+  "This bot has a webhook at another service, so its recent chats cannot be read here. Enter the chat ID by hand.": "لهذا البوت webhook عند خدمة أخرى، لذلك لا يمكن قراءة محادثاته الأخيرة من هنا. أدخل معرّف المحادثة يدوياً.",
+  "Transcribing…": "جارٍ التفريغ…"
 }

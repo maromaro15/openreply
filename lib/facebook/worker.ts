@@ -13,17 +13,20 @@ import { ALERT_BACKOFF_TYPE, alertBackoff, processAlertJob } from "@/lib/alerts/
 import { processBotReplyJob } from "./bot-reply";
 import { recordFacebookWorkerAlert } from "./health";
 import { processMessageJob } from "./messages";
+import { processTranscribeJob } from "./transcription";
 import {
   ALERT_SEND_JOB,
   FACEBOOK_QUEUE,
   FB_BOT_REPLY_JOB,
   FB_COMMENT_JOB,
   FB_MESSAGE_JOB,
+  FB_TRANSCRIBE_JOB,
   type AlertSendJob,
   type FacebookBotReplyJob,
   type FacebookCommentJob,
   type FacebookJob,
   type FacebookMessageJob,
+  type FacebookTranscribeJob,
 } from "./queue";
 
 export async function dispatchFacebookJob(job: Job<FacebookJob>): Promise<string> {
@@ -34,6 +37,8 @@ export async function dispatchFacebookJob(job: Job<FacebookJob>): Promise<string
       return processMessageJob(job as Job<FacebookMessageJob>);
     case FB_BOT_REPLY_JOB:
       return processBotReplyJob(job as Job<FacebookBotReplyJob>);
+    case FB_TRANSCRIBE_JOB:
+      return processTranscribeJob(job as Job<FacebookTranscribeJob>);
     case ALERT_SEND_JOB:
       return processAlertJob(job as Job<AlertSendJob>);
     default:

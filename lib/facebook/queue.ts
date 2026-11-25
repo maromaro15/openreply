@@ -65,6 +65,15 @@ export interface FacebookBotReplyJob {
   conversationId: string;
   /** The message that queued this job; the reply is claimed on it. */
   triggerMid: string;
+  /** How many times the job waited for a voice message to be transcribed. */
+  waits?: number;
+}
+
+export const FB_TRANSCRIBE_JOB = "fb-transcribe";
+
+/** A voice message to transcribe: a FacebookMessage row. */
+export interface FacebookTranscribeJob {
+  messageId: string;
 }
 
 export const ALERT_SEND_JOB = "alert-send";
@@ -74,7 +83,12 @@ export interface AlertSendJob {
   deliveryId: string;
 }
 
-export type FacebookJob = FacebookCommentJob | FacebookMessageJob | FacebookBotReplyJob | AlertSendJob;
+export type FacebookJob =
+  | FacebookCommentJob
+  | FacebookMessageJob
+  | FacebookBotReplyJob
+  | FacebookTranscribeJob
+  | AlertSendJob;
 
 let queue: Queue<FacebookJob> | null = null;
 
@@ -106,6 +120,10 @@ export function jobIdPart(value: string): string {
 
 export function commentJobId(pageId: string, commentId: string): string {
   return `fbc_${jobIdPart(pageId)}_${jobIdPart(commentId)}`;
+}
+
+export function transcribeJobId(messageId: string): string {
+  return `fbt_${jobIdPart(messageId)}`;
 }
 
 export function alertJobId(deliveryId: string): string {

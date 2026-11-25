@@ -56,7 +56,12 @@ vi.mock("@/lib/facebook/queue", async (importOriginal) => ({
 
 import { FacebookApiError } from "../../lib/facebook/graph";
 import { GeminiError } from "../../lib/ai/gemini";
-import { MAX_BOT_REPLIES_PER_HOUR, processBotReplyJob } from "../../lib/facebook/bot-reply";
+import {
+  MAX_BOT_REPLIES_PER_HOUR,
+  MAX_TRANSCRIPT_WAITS,
+  processBotReplyJob,
+  TRANSCRIPT_WAIT_MS,
+} from "../../lib/facebook/bot-reply";
 import { processMessageJob } from "../../lib/facebook/messages";
 import { dispatchFacebookJob } from "../../lib/facebook/worker";
 import { SYSTEM_REASONS } from "../../lib/bot/classify";
@@ -355,6 +360,25 @@ describe("handing the conversation to a person", () => {
     s.pending = [inbound("m_in_2", { text: null, attachmentType: "audio", transcriptStatus: "FAILED" })];
     await expect(processBotReplyJob(job())).resolves.toBe("handed_off");
     expectHandoff("AUDIO_FAILED", SYSTEM_REASONS.audio);
+  });
+
+  it("waits while a voice message is being transcribed, then answers it", async () => {
+    s.pending = [inbound("m_in_2", { text: null, attachmentType: "audio", transcriptStatus: "PENDING" })];
+    await expect(processBotReplyJob(job())).resolves.toBe("waiting_transcript");
+    expect(queue.add).toHaveBeenCalledWith(
+      "fb-bot-reply",
+      { facebookPageId: "fp_1", conversationId: "conv_1", triggerMid: "m_in_2", waits: 1 },
+      { jobId: `${botReplyJobId("conv_1", "m_in_2")}_w1`, delay: TRANSCRIPT_WAIT_MS }
+    );
+    expect(ai.generateJson).not.toHaveBeenCalled();
+    expect(db.facebookConversationEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("stops waiting after 3 minutes: the voice message then counts as not transcribed", async () => {
+    s.pending = [inbound("m_in_2", { text: null, attachmentType: "audio", transcriptStatus: "PENDING" })];
+    await expect(processBotReplyJob(job({ waits: MAX_TRANSCRIPT_WAITS }))).resolves.toBe("handed_off");
+    expectHandoff("AUDIO_FAILED", SYSTEM_REASONS.audio);
+    expect(queue.add).not.toHaveBeenCalledWith("fb-bot-reply", expect.anything(), expect.anything());
   });
 
   it("answers a transcribed voice message like a typed one", async () => {

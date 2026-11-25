@@ -162,8 +162,15 @@ function MessageBubble({ message, fb, locale, now }: { message: ThreadMessage; f
         {message.attachmentType === "audio" && (
           <p className={`mt-1 whitespace-pre-wrap break-words ${message.transcript ? "" : "text-xs opacity-80"}`}>
             {message.transcript ??
-              (message.transcriptStatus === "FAILED" ? t("Transcription failed") : t("Not transcribed"))}
+              (message.transcriptStatus === "PENDING"
+                ? t("Transcribing…")
+                : message.transcriptStatus === "FAILED"
+                  ? t("Transcription failed")
+                  : t("Not transcribed"))}
           </p>
+        )}
+        {message.attachmentType === "audio" && message.transcriptStatus === "FAILED" && message.error && (
+          <p className="mt-0.5 break-words text-[10px] opacity-70">{message.error}</p>
         )}
         {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
         <p

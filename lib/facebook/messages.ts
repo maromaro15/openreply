@@ -28,6 +28,7 @@ import { getFacebookAppId } from "./env";
 import { getMessengerProfileName } from "./graph";
 import { takeOverConversation } from "./inbox";
 import { pageToken } from "./pages";
+import { queueTranscription } from "./transcription";
 import {
   botReplyJobId,
   FB_BOT_REPLY_JOB,
@@ -68,8 +69,10 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
   const conversation = await findOrCreateConversation(page, data.psid);
   const attachment = primaryAttachment(data);
 
+  const isVoice = attachment?.type === "audio";
+  let stored: { id: string };
   try {
-    await prisma.facebookMessage.create({
+    stored = await prisma.facebookMessage.create({
       data: {
         workspaceId: page.workspaceId,
         conversationId: conversation.id,
@@ -79,13 +82,16 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
         text: data.text ?? null,
         attachmentType: attachment?.type ?? null,
         attachmentUrl: attachment?.url ?? null,
+        transcriptStatus: isVoice ? "PENDING" : null,
         sentAt,
       },
+      select: { id: true },
     });
   } catch (error) {
     // A webhook retry, or the same event in two deliveries.
-    if (isUniqueViolation(error)) return "duplicate";
-    throw error;
+    if (!isUniqueViolation(error)) throw error;
+    await resumeFollowUps(page, conversation, data.mid);
+    return "duplicate";
   }
 
   await prisma.facebookConversation.update({
@@ -94,6 +100,8 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
   });
   await touchLastMessage(conversation.id, sentAt, messagePreview(data.text, attachment?.type), "INBOUND");
 
+  // Transcribed right away (the audio link expires); the bot waits for it.
+  if (isVoice) await queueTranscription(stored.id);
   await scheduleBotReply(page, conversation, data.mid);
 
   // The person's name, once: the comment gave it when the thread started
@@ -113,6 +121,27 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
     }
   }
   return "stored";
+}
+
+/**
+ * A message seen again (a webhook retry) after a crash between storing it
+ * and queueing what follows: queue it now. Both jobs have fixed IDs, so this
+ * never runs anything twice.
+ */
+async function resumeFollowUps(
+  page: FacebookPage,
+  conversation: { id: string; mode: string; needsHuman: boolean },
+  mid: string
+): Promise<void> {
+  const existing = await prisma.facebookMessage.findUnique({
+    where: { mid },
+    select: { id: true, conversationId: true, attachmentType: true, transcriptStatus: true },
+  });
+  if (!existing || existing.conversationId !== conversation.id) return;
+  if (existing.attachmentType === "audio" && existing.transcriptStatus === "PENDING") {
+    await queueTranscription(existing.id);
+  }
+  await scheduleBotReply(page, conversation, mid);
 }
 
 /**

@@ -35,6 +35,11 @@ vi.mock("@/lib/ai/gemini", async (importOriginal) => ({
   ...ai,
 }));
 const queue = vi.hoisted(() => ({ add: vi.fn() }));
+const voice = vi.hoisted(() => ({ transcribeAudioUrl: vi.fn() }));
+vi.mock("@/lib/ai/transcribe", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/ai/transcribe")>()),
+  ...voice,
+}));
 vi.mock("@/lib/facebook/pages", () => ({ pageToken: () => "PAGE_TOKEN" }));
 vi.mock("@/lib/facebook/queue", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/facebook/queue")>()),
@@ -44,6 +49,7 @@ vi.mock("@/lib/facebook/queue", async (importOriginal) => ({
 import { processBotReplyJob } from "../../lib/facebook/bot-reply";
 import { handOffConversation } from "../../lib/facebook/handoff";
 import { processMessageJob } from "../../lib/facebook/messages";
+import { processTranscribeJob } from "../../lib/facebook/transcription";
 import type { FacebookBotReplyJob, FacebookMessageJob } from "../../lib/facebook/queue";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -175,6 +181,33 @@ describe.skipIf(!databaseUrl)("The bot on PostgreSQL", () => {
     queue.add.mockClear();
     await processMessageJob(message({ psid: "p_flow", text: "واش؟" }));
     expect(queue.add).not.toHaveBeenCalled();
+  });
+
+  it("a voice message: the bot waits for its transcript, then answers from it", async () => {
+    voice.transcribeAudioUrl.mockResolvedValue({ transcript: "شحال الروبة القبايلية؟", mimeType: "audio/mp4", converted: true });
+    await processMessageJob(
+      message({ psid: "p_voice", text: undefined, attachments: [{ type: "audio", url: "https://cdn.fbsbx.com/voice.mp4" }] })
+    );
+    const transcribeCall = queue.add.mock.calls.find(([name]) => name === "fb-transcribe")!;
+    const botJob = queuedBotJob();
+
+    await expect(processBotReplyJob(botJob)).resolves.toBe("waiting_transcript");
+    const waitCall = queue.add.mock.calls.at(-1)!;
+    expect(waitCall[1]).toMatchObject({ waits: 1 });
+
+    await expect(
+      processTranscribeJob({ id: "t", name: "fb-transcribe", data: transcribeCall[1] } as never)
+    ).resolves.toBe("transcribed");
+    const conversation = await conversationOf("p_voice");
+    expect(conversation.messages[0]).toMatchObject({ transcriptStatus: "DONE", transcript: "شحال الروبة القبايلية؟" });
+    expect(conversation.lastMessageText).toBe("🎤 شحال الروبة القبايلية؟");
+
+    await expect(
+      processBotReplyJob({ ...botJob, data: waitCall[1] } as unknown as Job<FacebookBotReplyJob>)
+    ).resolves.toBe("replied");
+    expect(ai.generateJson.mock.calls.at(-1)![0].contents[0].parts[0].text).toContain(
+      "Customer (voice message, transcribed): شحال الروبة القبايلية؟"
+    );
   });
 
   it("racing handoffs leave one HANDOFF event", async () => {
