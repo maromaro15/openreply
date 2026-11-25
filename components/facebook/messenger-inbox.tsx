@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { HandoffCategory } from "@/app/generated/prisma/client";
 import { selectWorkspace } from "@/lib/agency/actions";
-import type { FbI18n, FbStaticKey } from "@/lib/facebook/i18n";
+import { translateReason, type FbI18n, type FbStaticKey } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 import type {
   ConversationListItem,
@@ -692,7 +692,7 @@ export default function MessengerInbox({
                 </div>
                 {conversation.handoffReason && (
                   <p className="rounded bg-warning/10 px-2 py-1 text-xs text-foreground">
-                    {t("Reason: {reason}", { reason: conversation.handoffReason })}
+                    {t("Reason: {reason}", { reason: translateReason(t, conversation.handoffReason) })}
                   </p>
                 )}
                 {actionError && (

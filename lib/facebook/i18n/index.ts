@@ -50,12 +50,25 @@ export function createFbI18n(locale: string) {
 
 export type FbI18n = ReturnType<typeof createFbI18n>;
 
+function isStaticKey(value: string): value is FbStaticKey {
+  return Object.prototype.hasOwnProperty.call(arabic, value) && !/\{\w+\}/.test(value);
+}
+
+/**
+ * A stored handoff reason: the system's own reasons are English sentences
+ * of this catalog and get translated; a reason the model wrote stays as is.
+ */
+export function translateReason(t: FbI18n["t"], reason: string): string {
+  return isStaticKey(reason) ? t(reason) : reason;
+}
+
 /** Top bar titles for the screens of these modules. */
 export function moduleTitle(pathname: string): FbStaticKey | null {
   const under = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
   if (under("/agency")) return "Brands";
   if (under("/facebook/pages")) return "Facebook Pages";
   if (under("/facebook/inbox")) return "Messenger inbox";
+  if (under("/facebook/knowledge")) return "Knowledge base";
   if (pathname === "/facebook/campaigns/new") return "New campaign";
   if (pathname.startsWith("/facebook/campaigns/")) return "Edit campaign";
   if (pathname === "/facebook/campaigns") return "Facebook campaigns";

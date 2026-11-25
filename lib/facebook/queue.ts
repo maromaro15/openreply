@@ -53,7 +53,21 @@ export interface FacebookMessageJob {
   sentAt: string;
 }
 
-export type FacebookJob = FacebookCommentJob | FacebookMessageJob;
+export const FB_BOT_REPLY_JOB = "fb-bot-reply";
+
+/**
+ * The bot's turn in a conversation, queued a few seconds after a message
+ * (the debounce): only the job of the latest message answers, for all of
+ * the messages the person sent in a row.
+ */
+export interface FacebookBotReplyJob {
+  facebookPageId: string;
+  conversationId: string;
+  /** The message that queued this job; the reply is claimed on it. */
+  triggerMid: string;
+}
+
+export type FacebookJob = FacebookCommentJob | FacebookMessageJob | FacebookBotReplyJob;
 
 let queue: Queue<FacebookJob> | null = null;
 
@@ -85,6 +99,10 @@ export function jobIdPart(value: string): string {
 
 export function commentJobId(pageId: string, commentId: string): string {
   return `fbc_${jobIdPart(pageId)}_${jobIdPart(commentId)}`;
+}
+
+export function botReplyJobId(conversationId: string, triggerMid: string): string {
+  return `fbr_${jobIdPart(conversationId)}_${Buffer.from(triggerMid).toString("base64url")}`;
 }
 
 /** Message IDs ("m_…") may hold any character; always encoded. */

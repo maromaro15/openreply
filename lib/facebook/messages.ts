@@ -13,6 +13,7 @@
  */
 import type { Job } from "bullmq";
 import type { FacebookPage } from "@/app/generated/prisma/client";
+import { getBotDebounceMs } from "@/lib/ai/env";
 import { prisma } from "@/lib/db/client";
 import { privateReplyTranscript } from "./comments";
 import {
@@ -27,7 +28,12 @@ import { getFacebookAppId } from "./env";
 import { getMessengerProfileName } from "./graph";
 import { takeOverConversation } from "./inbox";
 import { pageToken } from "./pages";
-import type { FacebookMessageJob } from "./queue";
+import {
+  botReplyJobId,
+  FB_BOT_REPLY_JOB,
+  getFacebookQueue,
+  type FacebookMessageJob,
+} from "./queue";
 
 export type MessageOutcome =
   | "ignored"
@@ -88,6 +94,8 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
   });
   await touchLastMessage(conversation.id, sentAt, messagePreview(data.text, attachment?.type), "INBOUND");
 
+  await scheduleBotReply(page, conversation, data.mid);
+
   // The person's name, once: the comment gave it when the thread started
   // from a private reply; otherwise the profile API, when Meta allows it.
   if (!conversation.userName && page.status === "ACTIVE") {
@@ -105,6 +113,29 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
     }
   }
   return "stored";
+}
+
+/**
+ * Give the bot its turn, a few seconds from now, when the conversation is
+ * its to answer. The job checks everything again when it runs.
+ */
+async function scheduleBotReply(
+  page: FacebookPage,
+  conversation: { id: string; mode: string; needsHuman: boolean },
+  mid: string
+): Promise<void> {
+  if (page.status !== "ACTIVE" || !page.botEnabled) return;
+  if (conversation.mode !== "BOT" || conversation.needsHuman) return;
+  const settings = await prisma.botSettings.findUnique({
+    where: { workspaceId: page.workspaceId },
+    select: { enabled: true },
+  });
+  if (!settings?.enabled) return;
+  await getFacebookQueue().add(
+    FB_BOT_REPLY_JOB,
+    { facebookPageId: page.id, conversationId: conversation.id, triggerMid: mid },
+    { jobId: botReplyJobId(conversation.id, mid), delay: getBotDebounceMs() }
+  );
 }
 
 // ─── The Page sent a message ────────────────────────────────────────────────
