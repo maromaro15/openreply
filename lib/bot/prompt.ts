@@ -10,6 +10,7 @@
  */
 import type { GeminiContent } from "@/lib/ai/gemini";
 import { formatKnowledgeBase, KNOWLEDGE_MAX_CHARS } from "./knowledge";
+import { ACTIONS_RESPONSE_SCHEMA, actionsPromptSection } from "./actions";
 import type { GuardSources } from "./guard";
 import { formatOrderSection, ORDER_RESPONSE_SCHEMA, type OrderDraft, type OrderFieldValue } from "./order";
 import {
@@ -79,9 +80,10 @@ export const BOT_RESPONSE_SCHEMA = {
       type: "STRING",
       description: "your message to the customer; empty when handoff is true",
     },
+    actions: ACTIONS_RESPONSE_SCHEMA,
   },
   required: ["customer_state", "handoff", "category", "reason", "order", "reply"],
-  propertyOrdering: ["customer_state", "handoff", "category", "reason", "order", "reply"],
+  propertyOrdering: ["customer_state", "handoff", "category", "reason", "order", "reply", "actions"],
 } as const;
 
 const RULES = `You answer the Messenger messages that customers send to a shop's Facebook Page.
@@ -126,7 +128,11 @@ export function buildSystemInstruction(input: Omit<PromptInput, "history">): str
   }
   parts.push(section("KNOWLEDGE BASE", knowledge));
   // Already a whole "## PRODUCT CATALOG" section, with its own sub-headings.
-  if (input.catalogSection?.trim()) parts.push(input.catalogSection.trim());
+  if (input.catalogSection?.trim()) {
+    parts.push(input.catalogSection.trim());
+    // Pictures and comparisons only exist for a brand with a catalog.
+    parts.push(actionsPromptSection());
+  }
   if (input.campaign) {
     const lines = [`This customer wrote after commenting on a post of the campaign "${input.campaign.name}".`];
     if (input.campaign.botContext?.trim()) lines.push(`What the campaign is about: ${input.campaign.botContext.trim()}`);

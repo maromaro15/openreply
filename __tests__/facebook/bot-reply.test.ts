@@ -40,6 +40,7 @@ const db = vi.hoisted(() => ({
 const graph = vi.hoisted(() => ({ sendMessage: vi.fn(), getMessengerProfileName: vi.fn() }));
 const ai = vi.hoisted(() => ({ generateJson: vi.fn() }));
 const queue = vi.hoisted(() => ({ add: vi.fn() }));
+const pictures = vi.hoisted(() => ({ sendBotActions: vi.fn() }));
 
 vi.mock("@/lib/db/client", () => ({ prisma: db }));
 vi.mock("@/lib/facebook/graph", async (importOriginal) => ({
@@ -51,6 +52,10 @@ vi.mock("@/lib/ai/gemini", async (importOriginal) => ({
   ...ai,
 }));
 vi.mock("@/lib/facebook/pages", () => ({ pageToken: () => "PAGE_TOKEN" }));
+vi.mock("@/lib/facebook/bot-actions-send", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/facebook/bot-actions-send")>()),
+  ...pictures,
+}));
 vi.mock("@/lib/facebook/queue", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/facebook/queue")>()),
   getFacebookQueue: () => queue,
@@ -711,5 +716,78 @@ describe("a customer's photo (phase 12)", () => {
       expect.objectContaining({ data: expect.objectContaining({ handoffCategory: "OTHER", handoffReason: SYSTEM_REASONS.attachment }) })
     );
     expect(ai.generateJson).not.toHaveBeenCalled();
+  });
+});
+
+describe("the bot's pictures (phase 13)", () => {
+  const COLOURS = [{ type: "send_colours", product: "WP-12", colours: ["12-04"] }];
+  const says = (fields: Record<string, unknown>) =>
+    modelSays({ customer_state: "INTERESTED", handoff: false, category: "NONE", reason: "", reply: "هاهي الألوان", order: {}, ...fields });
+
+  beforeEach(() => {
+    pictures.sendBotActions.mockResolvedValue({ sent: 1, dropped: 0 });
+  });
+
+  it("sends the pictures it asked for, after its words", async () => {
+    says({ actions: COLOURS });
+    await expect(processBotReplyJob(job())).resolves.toBe("replied");
+    expect(pictures.sendBotActions).toHaveBeenCalledWith(expect.objectContaining({ id: "conv_1", psid: "psid_1" }), COLOURS);
+    expect(graph.sendMessage.mock.invocationCallOrder[0]).toBeLessThan(pictures.sendBotActions.mock.invocationCallOrder[0]);
+  });
+
+  it("sends none with a handoff, a refused reply or an empty list", async () => {
+    says({ handoff: true, category: "COMPLAINT", reason: "الكولي وصل مكسور", reply: "", actions: COLOURS });
+    await processBotReplyJob(job());
+    says({ reply: "عندك تخفيض خاص بيك", actions: COLOURS });
+    await processBotReplyJob(job());
+    says({ actions: [] });
+    await processBotReplyJob(job());
+    expect(pictures.sendBotActions).not.toHaveBeenCalled();
+  });
+
+  it("still hands a complete order to a person after the pictures", async () => {
+    s.settings = { ...s.settings, orderFields: ["WILAYA"] };
+    says({ customer_state: "READY_TO_BUY", reply: "يعطيك الصحة", order: { wilaya: "16" }, actions: COLOURS });
+    await expect(processBotReplyJob(job())).resolves.toBe("order_ready");
+    expect(pictures.sendBotActions).toHaveBeenCalledTimes(1);
+    expect(db.facebookConversation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ handoffCategory: "ORDER_READY" }) })
+    );
+  });
+
+  it("tells the model which pictures it already sent, and counts a reply with its pictures once", async () => {
+    const sentAt = new Date("2026-11-25T11:58:00Z");
+    s.history = [
+      ...s.pending,
+      { ...inbound("m_pic_1", { text: "12-04 Gris · 12-01 Blanc", sentAt }), mid: "m_pic_1", direction: "OUTBOUND", author: "BOT", attachmentType: "template", sendStatus: "SENT" },
+      { ...inbound("m_pic_2", { text: null, sentAt }), direction: "OUTBOUND", author: "BOT", attachmentType: "image", attachmentUrl: "https://app/p.jpg", sendStatus: "SENT" },
+      { ...inbound("m_pic_3", { text: "x", sentAt }), direction: "OUTBOUND", author: "BOT", attachmentType: "template", sendStatus: "FAILED" },
+    ].reverse();
+    await processBotReplyJob(job());
+    const conversationText = ai.generateJson.mock.calls[0][0].contents[0].parts[0].text as string;
+    expect(conversationText).toContain("[sent pictures: 12-04 Gris · 12-01 Blanc]");
+    expect(conversationText).toContain("[sent a picture]");
+    expect(conversationText).not.toContain("[sent pictures: x]");
+    expect(db.facebookMessage.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ author: "BOT", direction: "OUTBOUND", replyToMid: { not: null } }),
+    });
+  });
+
+  it("shows the model what it may send, only for a brand with a catalog", async () => {
+    await processBotReplyJob(job());
+    expect(ai.generateJson.mock.calls[0][0].systemInstruction).not.toContain("send_colours");
+    vi.clearAllMocks();
+    db.$transaction.mockImplementation(async (fn: (tx: typeof db) => unknown) => fn(db));
+    db.facebookConversation.updateMany.mockResolvedValue({ count: 1 });
+    db.product.findMany.mockResolvedValue([
+      {
+        id: "prod_wp", name: "Papier peint 3D", code: "WP-12", price: "1200 DA", available: true, landingUrl: null,
+        description: null, howToUse: null, attributes: {}, strengths: [], comparisons: null, suitableFor: null,
+        objections: [], variants: [], related: [],
+      },
+    ]);
+    says({});
+    await processBotReplyJob(job());
+    expect(ai.generateJson.mock.calls[0][0].systemInstruction).toContain("send_colours");
   });
 });

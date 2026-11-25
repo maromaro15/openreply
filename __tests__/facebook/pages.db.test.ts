@@ -97,7 +97,7 @@ describe.skipIf(!databaseUrl)("Facebook Pages on PostgreSQL", () => {
     graph.getPage.mockResolvedValue({ id: "1001", name: "Maison Lina DZ" });
     graph.subscribePageWebhooks.mockResolvedValue(true);
     graph.getPageSubscribedApps.mockResolvedValue([
-      { id: APP_ID, subscribed_fields: ["feed", "messages", "message_echoes"] },
+      { id: APP_ID, subscribed_fields: ["feed", "messages", "message_echoes", "messaging_postbacks"] },
     ]);
     graph.unsubscribePageWebhooks.mockResolvedValue(true);
   });

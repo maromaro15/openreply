@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe("Facebook environment", () => {
-  it("asks for the five Page permissions and three webhook fields", () => {
+  it("asks for the five Page permissions and four webhook fields", () => {
     expect([...REQUIRED_PAGE_PERMISSIONS].sort()).toEqual([
       "pages_manage_engagement",
       "pages_manage_metadata",
@@ -26,7 +26,7 @@ describe("Facebook environment", () => {
       "pages_read_engagement",
       "pages_show_list",
     ]);
-    expect(PAGE_WEBHOOK_FIELDS).toEqual(["feed", "messages", "message_echoes"]);
+    expect(PAGE_WEBHOOK_FIELDS).toEqual(["feed", "messages", "message_echoes", "messaging_postbacks"]);
   });
 
   it("falls back to the Instagram setup's variables", () => {

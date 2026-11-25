@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { jsonError, requireWorkspace } from "@/lib/agency/http";
+import { planActions } from "@/lib/bot/actions";
 import { answerCustomer } from "@/lib/bot/answer";
 import { SYSTEM_REASONS } from "@/lib/bot/classify";
 import { getBotMaxFullCards } from "@/lib/ai/env";
@@ -9,6 +10,7 @@ import { mergeOrder, orderSummary, parseOrderDraft } from "@/lib/bot/order";
 import { goalCollectsOrder } from "@/lib/bot/persona";
 import { isOrderReady } from "@/lib/bot/persona-store";
 import { loadCatalogForBot } from "@/lib/catalog/bot";
+import { LIKE_BUTTON, loadActionProducts, publicBaseUrl } from "@/lib/facebook/bot-actions-send";
 import {
   buildCatalogSection,
   catalogReferenceTexts,
@@ -31,9 +33,9 @@ const bodySchema = z.object({
 
 /**
  * "Try the bot": the answer the bot would give with the saved settings,
- * persona and knowledge base, the customer's state it reads, and the order
- * details it collects. Nothing is sent on Messenger, nothing is stored, and
- * no alert goes out.
+ * persona and knowledge base, the customer's state it reads, the order
+ * details it collects, and the pictures it would send. Nothing is sent on
+ * Messenger, nothing is stored, and no alert goes out.
  */
 export async function POST(request: NextRequest) {
   const context = await requireWorkspace(request, "MEMBER");
@@ -81,6 +83,23 @@ export async function POST(request: NextRequest) {
     orderReady && answer.decision.kind === "handoff" && answer.decision.source !== "model"
       ? { kind: "handoff" as const, category: "ORDER_READY" as const, reason: readyReason, source: "system" as const }
       : answer.decision;
+  // The pictures it would send after its words, checked against the catalog as on Messenger.
+  const plans =
+    decision.kind === "reply" && answer.actions.length > 0
+      ? planActions(answer.actions, await loadActionProducts(context.workspaceId)).plans
+      : [];
+  const pictures =
+    plans.length > 0
+      ? {
+          /** Messenger fetches them itself: only from a public https address. */
+          onMessenger: publicBaseUrl() !== null,
+          button: LIKE_BUTTON,
+          sets: plans.map((plan) => ({
+            type: plan.type,
+            cards: plan.cards.map(({ title, subtitle, imagePath }) => ({ title, subtitle, imagePath })),
+          })),
+        }
+      : null;
 
   return NextResponse.json({
     success: true,
@@ -93,6 +112,7 @@ export async function POST(request: NextRequest) {
       order,
       orderLines: order ? orderSummary(order, settings.orderFields).map(({ field, value }) => ({ field, value })) : [],
       orderReady: orderReady ? { reason: readyReason } : null,
+      pictures,
       attempts: answer.attempts,
     },
   });

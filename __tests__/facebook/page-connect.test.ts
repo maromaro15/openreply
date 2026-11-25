@@ -69,7 +69,7 @@ beforeEach(() => {
   graph.subscribePageWebhooks.mockResolvedValue(true);
   graph.getPageSubscribedApps.mockResolvedValue([
     { id: "999", subscribed_fields: ["feed"] },
-    { id: APP_ID, subscribed_fields: ["feed", "messages", "message_echoes"] },
+    { id: APP_ID, subscribed_fields: ["feed", "messages", "message_echoes", "messaging_postbacks"] },
   ]);
   prisma.facebookPage.findUnique.mockResolvedValue(null);
   prisma.facebookPage.create.mockResolvedValue({ id: "fp_1" });
@@ -81,7 +81,7 @@ afterEach(() => {
 });
 
 describe("connecting a Page token", () => {
-  it("stores the Page with an encrypted token and subscribes the three fields", async () => {
+  it("stores the Page with an encrypted token and subscribes the four fields", async () => {
     const outcome = await connectWithToken({ workspaceId: "ws_a", token: `  ${PAGE_TOKEN}\n` });
 
     expect(outcome).toEqual({
@@ -93,7 +93,7 @@ describe("connecting a Page token", () => {
           pageId: "1001",
           name: "Maison Lina DZ",
           webhookSubscribed: true,
-          subscribedFields: ["feed", "messages", "message_echoes"],
+          subscribedFields: ["feed", "messages", "message_echoes", "messaging_postbacks"],
           tokenExpiresAt: null,
           subscriptionError: null,
         },
@@ -116,12 +116,13 @@ describe("connecting a Page token", () => {
       "feed",
       "messages",
       "message_echoes",
+      "messaging_postbacks",
     ]);
     expect(prisma.facebookPage.update).toHaveBeenLastCalledWith({
       where: { id: "fp_1" },
       data: {
         webhookSubscribed: true,
-        subscribedFields: ["feed", "messages", "message_echoes"],
+        subscribedFields: ["feed", "messages", "message_echoes", "messaging_postbacks"],
         lastError: null,
       },
     });
@@ -331,7 +332,7 @@ describe("subscription, disconnection and setup", () => {
     expect(webhookSetup()).toEqual({
       callbackUrl: "https://bot.example.com/api/facebook/webhook",
       verifyTokenConfigured: true,
-      fields: ["feed", "messages", "message_echoes"],
+      fields: ["feed", "messages", "message_echoes", "messaging_postbacks"],
       permissions: [
         "pages_messaging",
         "pages_read_engagement",

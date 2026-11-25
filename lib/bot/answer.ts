@@ -17,6 +17,8 @@ export interface BotAnswer {
   /** What the model read of the customer, even when it handed off. */
   customerState: CustomerStateValue | null;
   order: Record<string, unknown> | null;
+  /** Pictures or comparisons the model asked for, unchecked. */
+  actions: unknown[];
   /** The model's JSON as it came (the rewrite's, after one), for the "try the bot" box. */
   modelOutput: unknown;
   /** Why the AI call failed, when it did. */
@@ -44,6 +46,7 @@ export async function answerCustomer(
       decision: { kind: "handoff", category: "OTHER", reason: SYSTEM_REASONS.aiMissing, source: "system" },
       customerState: null,
       order: null,
+      actions: [],
       modelOutput: null,
       error: "missing_key",
       attempts: 0,
@@ -100,6 +103,7 @@ export async function answerCustomer(
       decision: { kind: "handoff", category: "OTHER", reason, source: "system", detail: kind },
       customerState: null,
       order: null,
+      actions: [],
       modelOutput: null,
       error: error instanceof Error ? `${kind}: ${error.message}` : kind,
       attempts: 1,

@@ -55,13 +55,19 @@ function handoffCategory(value: string): HandoffCategory {
  * the order details they gave. Lenient: an unknown state is null and a
  * malformed order is ignored, so neither can cost an answer.
  */
-export function readCustomer(output: unknown): { customerState: CustomerStateValue | null; order: Record<string, unknown> | null } {
-  if (!output || typeof output !== "object" || Array.isArray(output)) return { customerState: null, order: null };
-  const { customer_state: state, order } = output as Record<string, unknown>;
+export function readCustomer(output: unknown): {
+  customerState: CustomerStateValue | null;
+  order: Record<string, unknown> | null;
+  /** The model's requested actions, raw: lib/bot/actions.ts checks them. */
+  actions: unknown[];
+} {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return { customerState: null, order: null, actions: [] };
+  const { customer_state: state, order, actions } = output as Record<string, unknown>;
   return {
     customerState:
       typeof state === "string" && (CUSTOMER_STATES as readonly string[]).includes(state) ? (state as CustomerStateValue) : null,
     order: order && typeof order === "object" && !Array.isArray(order) ? (order as Record<string, unknown>) : null,
+    actions: Array.isArray(actions) ? actions : [],
   };
 }
 

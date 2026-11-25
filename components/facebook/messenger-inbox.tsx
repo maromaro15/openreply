@@ -51,6 +51,8 @@ const ATTACHMENTS: Record<string, { mark: string; label: FbStaticKey }> = {
   file: { mark: "📎", label: "File" },
   sticker: { mark: "🙂", label: "Sticker" },
   location: { mark: "📍", label: "Location" },
+  // The bot's colour cards or comparison (phase 13): their titles are the text.
+  template: { mark: "🖼️", label: "Pictures" },
 };
 
 function formatTime(iso: string | null, locale: string, now: number): string {

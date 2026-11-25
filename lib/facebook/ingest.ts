@@ -6,6 +6,7 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
 import { parsePageWebhook, type PageEchoEvent, type PageMessageEvent } from "./webhook";
+import { parsePostbackEvents, postbackDedupeKey } from "./postbacks";
 import {
   commentJobId,
   FB_COMMENT_JOB,
@@ -94,6 +95,28 @@ export async function ingestPageWebhook(payload: unknown): Promise<IngestResult>
       await queue.add(FB_MESSAGE_JOB, messageJob(page, message, "message"), {
         jobId: messageJobId(page.pageId, message.mid, "message"),
       });
+      messages += 1;
+    }
+    // A «نحب هذا» click is a customer's message: the bot answers it.
+    for (const click of parsePostbackEvents(payload)) {
+      const page = byPageId.get(click.pageId);
+      if (!page) continue;
+      const mid = postbackDedupeKey(click);
+      await queue.add(
+        FB_MESSAGE_JOB,
+        {
+          facebookPageId: page.id,
+          pageId: page.pageId,
+          kind: "message",
+          psid: click.psid,
+          mid,
+          text: click.title,
+          attachments: [],
+          postback: { payload: click.payload },
+          sentAt: new Date(click.timestamp || Date.now()).toISOString(),
+        },
+        { jobId: messageJobId(page.pageId, mid, "message") }
+      );
       messages += 1;
     }
     for (const echo of parsed.echoes) {

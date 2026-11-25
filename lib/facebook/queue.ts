@@ -51,6 +51,8 @@ export interface FacebookMessageJob {
   metadata?: string;
   /** ISO time Meta gives for the message. */
   sentAt: string;
+  /** A «نحب هذا» click (messaging_postbacks): its payload, read by lib/facebook/postbacks.ts. */
+  postback?: { payload: string };
 }
 
 export const FB_BOT_REPLY_JOB = "fb-bot-reply";

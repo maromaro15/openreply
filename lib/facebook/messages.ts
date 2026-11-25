@@ -30,6 +30,8 @@ import { takeOverConversation } from "./inbox";
 import { pageToken } from "./pages";
 import { queueTranscription } from "./transcription";
 import { IMAGE, parseImageAnalysis, queueImageRecognition } from "./image-recognition";
+import { decodePostbackPayload } from "./postbacks";
+import { rememberFocus } from "@/lib/catalog/bot";
 import {
   botReplyJobId,
   FB_BOT_REPLY_JOB,
@@ -72,6 +74,9 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
 
   const isVoice = attachment?.type === "audio";
   const isImage = attachment?.type === IMAGE;
+  // A «نحب هذا» click: the product (and colour) it names, from this brand only.
+  const liked = data.postback ? await likedProduct(page.workspaceId, data.postback.payload) : null;
+  const text = liked ? `👍 ${data.text ?? ""}: ${liked.label}`.trim() : (data.text ?? null);
   let stored: { id: string };
   try {
     stored = await prisma.facebookMessage.create({
@@ -81,7 +86,7 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
         direction: "INBOUND",
         author: "CUSTOMER",
         mid: data.mid,
-        text: data.text ?? null,
+        text,
         attachmentType: attachment?.type ?? null,
         attachmentUrl: attachment?.url ?? null,
         transcriptStatus: isVoice ? "PENDING" : null,
@@ -101,7 +106,9 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
     where: { id: conversation.id },
     data: { unreadCount: { increment: 1 } },
   });
-  await touchLastMessage(conversation.id, sentAt, messagePreview(data.text, attachment?.type), "INBOUND");
+  await touchLastMessage(conversation.id, sentAt, messagePreview(text ?? undefined, attachment?.type), "INBOUND");
+  // The liked product leads what the conversation is about: its card is shown.
+  if (liked) await rememberFocus(conversation.id, [liked.productId], conversation.focusProductIds ?? []);
 
   // Transcribed right away (the audio link expires); the bot waits for it.
   if (isVoice) await queueTranscription(stored.id);
@@ -292,4 +299,18 @@ async function recordExternalReply(page: FacebookPage, data: FacebookMessageJob)
   await prisma.facebookConversation.update({ where: { id: conversation.id }, data: { unreadCount: 0 } });
   await takeOverConversation(conversation.id, { reason: "META_REPLY" });
   return "human_reply";
+}
+
+/** The product a «نحب هذا» payload names, if it is still one of this brand's. */
+async function likedProduct(workspaceId: string, payload: string): Promise<{ productId: string; label: string } | null> {
+  const action = decodePostbackPayload(payload);
+  if (!action) return null;
+  const product = await prisma.product.findFirst({
+    where: { id: action.productId, workspaceId },
+    select: { id: true, name: true, variants: { where: { code: action.variantCode ?? "" }, select: { code: true, name: true }, take: 1 } },
+  });
+  if (!product) return null;
+  const variant = action.variantCode ? product.variants[0] : null;
+  const colour = variant ? ` · ${[variant.code, variant.name].filter(Boolean).join(" ")}` : "";
+  return { productId: product.id, label: `${product.name}${colour}` };
 }

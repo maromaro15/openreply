@@ -20,6 +20,12 @@ type Decision =
 
 type OrderLine = { field: OrderFieldValue | "PRODUCT"; value: string };
 
+type Pictures = {
+  onMessenger: boolean;
+  button: string;
+  sets: { type: "colours" | "compare"; cards: { title: string; subtitle: string | null; imagePath: string }[] }[];
+};
+
 type Turn =
   | { id: number; from: "customer"; text: string }
   | {
@@ -31,6 +37,7 @@ type Turn =
       customerState: CustomerStateValue | null;
       orderLines: OrderLine[];
       orderReady: { reason: string } | null;
+      pictures: Pictures | null;
       attempts: number;
     };
 
@@ -52,6 +59,36 @@ function CustomerNote({ turn }: { turn: Extract<Turn, { from: "bot" }> }) {
           {t("Order so far:")}{" "}
           {turn.orderLines.map((line) => `${t(ORDER_LINE_LABELS[line.field])}: ${line.value}`).join(" · ")}
         </p>
+      )}
+    </div>
+  );
+}
+
+/** The cards it would send after its words, as Messenger would show them. */
+function PicturesNote({ pictures }: { pictures: Pictures }) {
+  const { t } = useFbI18n();
+  return (
+    <div className="w-full max-w-[80%] space-y-2">
+      {pictures.sets.map((set, index) => (
+        <div key={index} className="space-y-1">
+          <p className="text-[11px] text-muted">
+            {set.type === "compare" ? t("Then a comparison, {count} cards:", { count: set.cards.length }) : t("Then the colours, {count} pictures:", { count: set.cards.length })}
+          </p>
+          <ul className="flex gap-2 overflow-x-auto pb-1">
+            {set.cards.map((card, position) => (
+              <li key={position} className="w-28 shrink-0 overflow-hidden rounded border border-border bg-surface">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a product picture served by this app */}
+                <img src={card.imagePath} alt="" loading="lazy" className="block aspect-square w-full object-cover" />
+                <p dir="auto" className="truncate px-1.5 pt-1 text-[11px] font-medium text-foreground">{card.title}</p>
+                {card.subtitle && <p dir="auto" className="truncate px-1.5 text-[10px] text-muted">{card.subtitle}</p>}
+                <p dir="auto" className="mt-1 border-t border-border px-1.5 py-0.5 text-center text-[10px] text-accent">{pictures.button}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {!pictures.onMessenger && (
+        <p className="text-[11px] text-warning">{t("On Messenger, pictures go out only once the app runs on a public https address.")}</p>
       )}
     </div>
   );
@@ -105,6 +142,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
           customerState: payload.data.customerState ?? null,
           orderLines: payload.data.orderLines ?? [],
           orderReady: payload.data.orderReady ?? null,
+          pictures: payload.data.pictures ?? null,
           attempts: payload.data.attempts ?? 1,
         },
       ]);
@@ -148,6 +186,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
                   <p dir="auto" className="whitespace-pre-wrap">{turn.decision.text}</p>
                   <p className="mt-1 text-[10px] text-white/75">{t("Bot")}</p>
                 </div>
+                {turn.pictures && <PicturesNote pictures={turn.pictures} />}
                 <CustomerNote turn={turn} />
                 {turn.orderReady && (
                   <p className="flex flex-wrap items-center gap-2 rounded border border-success/30 bg-success/5 px-2 py-1 text-xs text-foreground">

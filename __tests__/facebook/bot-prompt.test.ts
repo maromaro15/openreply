@@ -125,7 +125,7 @@ describe("the conversation", () => {
 
 describe("the answer's schema and the guard's references", () => {
   it("asks for the customer's state and the decision before the reply", () => {
-    const order = ["customer_state", "handoff", "category", "reason", "order", "reply"];
+    const order = ["customer_state", "handoff", "category", "reason", "order", "reply", "actions"];
     expect(BOT_RESPONSE_SCHEMA.propertyOrdering).toEqual(order);
     expect(Object.keys(BOT_RESPONSE_SCHEMA.properties)).toEqual(order);
     expect(BOT_RESPONSE_SCHEMA.properties.category.enum).not.toContain("AUDIO_FAILED");

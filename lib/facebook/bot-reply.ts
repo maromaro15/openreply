@@ -27,6 +27,7 @@ import { goalCollectsOrder, type CustomerStateValue } from "@/lib/bot/persona";
 import { isOrderReady } from "@/lib/bot/persona-store";
 import { recognitionPromptLine } from "@/lib/catalog/recognize";
 import { IMAGE, parseImageAnalysis, recognizedProductIds } from "./image-recognition";
+import { PICTURES, sendBotActions } from "./bot-actions-send";
 import { loadCatalogForBot, rememberFocus } from "@/lib/catalog/bot";
 import {
   buildCatalogSection,
@@ -102,12 +103,18 @@ export function toPromptMessages(messages: FacebookMessage[]): PromptMessage[] {
       else if (message.attachmentType) result.push({ from: "customer", text: `[sent a ${message.attachmentType}]` });
       continue;
     }
-    if (message.sendStatus === "FAILED" || message.sendStatus === "PENDING" || !message.text) continue;
-    result.push({
-      from: "page",
-      by: message.author === "BOT" ? "bot" : message.author === "CAMPAIGN" ? "campaign" : "person",
-      text: message.text,
-    });
+    if (message.sendStatus === "FAILED" || message.sendStatus === "PENDING") continue;
+    const by = message.author === "BOT" ? "bot" : message.author === "CAMPAIGN" ? "campaign" : "person";
+    // The pictures sent after a reply (phase 13), or a picture a person sent.
+    if (message.attachmentType === PICTURES) {
+      result.push({ from: "page", by, text: `[sent pictures: ${message.text ?? ""}]` });
+      continue;
+    }
+    if (message.attachmentType === IMAGE && !message.text) {
+      result.push({ from: "page", by, text: "[sent a picture]" });
+      continue;
+    }
+    if (message.text) result.push({ from: "page", by, text: message.text });
   }
   return result;
 }
@@ -324,7 +331,8 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     return handoffBy("AUDIO_FAILED", SYSTEM_REASONS.audio);
   }
   const lastHour = await prisma.facebookMessage.count({
-    where: { conversationId, author: "BOT", direction: "OUTBOUND", sentAt: { gte: new Date(Date.now() - HOUR_MS) } },
+    // One per turn: the reply or handoff it claimed (`replyToMid`), with any pictures it sent.
+    where: { conversationId, author: "BOT", direction: "OUTBOUND", replyToMid: { not: null }, sentAt: { gte: new Date(Date.now() - HOUR_MS) } },
   });
   if (lastHour >= MAX_BOT_REPLIES_PER_HOUR) return handoffBy("OTHER", SYSTEM_REASONS.tooManyReplies);
 
@@ -411,6 +419,8 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
 
   const sent = await sendClaimed(conversation, triggerMid, answer.decision.text);
   if (sent.status === "sent") {
+    // The pictures or the comparison it asked for, after its words.
+    if (answer.actions.length) await sendBotActions(conversation, answer.actions);
     if (!orderReady) return "replied";
     // The reply thanked the customer: the team is told, the customer is not again.
     await handOff(conversation, triggerMid, orderReadyHandoff, settings, { tellCustomer: false });

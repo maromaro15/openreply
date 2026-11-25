@@ -51,14 +51,15 @@ describe("what the model reads of the customer", () => {
     expect(readCustomer(answer({ customer_state: "READY_TO_BUY", order: { wilaya: "Oran" } }))).toEqual({
       customerState: "READY_TO_BUY",
       order: { wilaya: "Oran" },
+      actions: [],
     });
     expect(readCustomer(answer({ handoff: true, category: "COMPLAINT", customer_state: "ANGRY" })).customerState).toBe("ANGRY");
   });
 
   it("ignores an unknown state or a malformed order, without costing the answer", () => {
-    expect(readCustomer(answer({ customer_state: "EXCITED", order: ["Oran"] }))).toEqual({ customerState: null, order: null });
-    expect(readCustomer(null)).toEqual({ customerState: null, order: null });
-    expect(readCustomer("text")).toEqual({ customerState: null, order: null });
+    expect(readCustomer(answer({ customer_state: "EXCITED", order: ["Oran"] }))).toEqual({ customerState: null, order: null, actions: [] });
+    expect(readCustomer(null)).toEqual({ customerState: null, order: null, actions: [] });
+    expect(readCustomer("text")).toEqual({ customerState: null, order: null, actions: [] });
   });
 });
 
@@ -152,8 +153,8 @@ describe("the persona and the order in the prompt", () => {
     expect(buildSystemInstruction({ ...INPUT, order: { fields: [], draft: null } })).not.toContain("## ORDER DETAILS");
   });
 
-  it("asks for the customer's state, then the decision, the order and the reply", () => {
-    expect(BOT_RESPONSE_SCHEMA.propertyOrdering).toEqual(["customer_state", "handoff", "category", "reason", "order", "reply"]);
+  it("asks for the customer's state, then the decision, the order, the reply and the pictures", () => {
+    expect(BOT_RESPONSE_SCHEMA.propertyOrdering).toEqual(["customer_state", "handoff", "category", "reason", "order", "reply", "actions"]);
     expect(BOT_RESPONSE_SCHEMA.properties.customer_state.enum).toContain("READY_TO_BUY");
     expect(BOT_RESPONSE_SCHEMA.required).toEqual(expect.arrayContaining(["customer_state", "order"]));
   });

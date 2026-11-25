@@ -208,6 +208,7 @@ describe("/api/bot/test", () => {
       order: null,
       orderLines: [],
       orderReady: null,
+      pictures: null,
       attempts: 1,
     });
     const prompt = ai.generateJson.mock.calls[0][0];
@@ -241,6 +242,39 @@ describe("/api/bot/test", () => {
       decision: { kind: "handoff", category: "OTHER", reason: SYSTEM_REASONS.aiUnavailable },
       error: "rate_limited: Quota exceeded",
     });
+  });
+
+  it("shows the pictures it would send, and says when Messenger could not fetch them", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "AIza-x");
+    vi.stubEnv("NEXTAUTH_URL", "http://localhost:3000");
+    db.product.findMany.mockResolvedValue([
+      {
+        id: "prod_wp", name: "Papier peint 3D", code: "WP-12", price: "1200 DA", available: true, landingUrl: null,
+        description: null, howToUse: null, attributes: {}, strengths: [], comparisons: null, suitableFor: null,
+        objections: [], related: [], mainImage: null,
+        variants: [{ code: "12-04", name: "Gris", available: true, image: { publicId: "G".repeat(32) } }],
+      },
+    ]);
+    ai.generateJson.mockResolvedValue({
+      data: {
+        customer_state: "INTERESTED", handoff: false, category: "NONE", reason: "", order: {}, reply: "هاهم الألوان",
+        actions: [{ type: "send_colours", product: "WP-12", colours: [] }],
+      },
+      result: { text: "", finishReason: "STOP", usage: null },
+    });
+    const { data } = await (await ask({ message: "وريني الألوان" })).json();
+    expect(data.pictures).toMatchObject({
+      onMessenger: false,
+      button: "نحب هذا",
+      sets: [{ type: "colours", cards: [{ title: "12-04 Gris", imagePath: `/api/public/media/${"G".repeat(32)}` }] }],
+    });
+
+    // Nothing to show with a handoff, even when the model asked for pictures.
+    ai.generateJson.mockResolvedValue({
+      data: { handoff: true, category: "COMPLAINT", reason: "colis cassé", reply: "", actions: [{ type: "send_colours", product: "WP-12", colours: [] }] },
+      result: { text: "", finishReason: "STOP", usage: null },
+    });
+    expect((await (await ask({ message: "الكولي وصل مكسور" })).json()).data.pictures).toBeNull();
   });
 
   it("validates the question", async () => {

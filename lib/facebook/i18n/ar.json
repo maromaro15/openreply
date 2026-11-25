@@ -550,5 +550,8 @@
   "Could be: {names}": "قد يكون: {names}",
   "Maybe: {name}, to confirm": "ربما: {name}، للتأكيد",
   "Not recognised": "لم يتعرّف عليه البوت",
-  "The photo came without a link.": "وصلت الصورة بلا رابط."
+  "The photo came without a link.": "وصلت الصورة بلا رابط.",
+  "Then a comparison, {count} cards:": "ثم مقارنة (عدد البطاقات: {count}):",
+  "Then the colours, {count} pictures:": "ثم الألوان (عدد الصور: {count}):",
+  "On Messenger, pictures go out only once the app runs on a public https address.": "على ماسنجر، لا تُرسل الصور إلا عندما يعمل التطبيق على عنوان https عام."
 }

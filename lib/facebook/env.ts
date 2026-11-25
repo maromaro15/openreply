@@ -18,7 +18,7 @@ export const REQUIRED_PAGE_PERMISSIONS = [
 ] as const;
 
 /** Page webhook fields the app subscribes to on every connected Page. */
-export const PAGE_WEBHOOK_FIELDS = ["feed", "messages", "message_echoes"] as const;
+export const PAGE_WEBHOOK_FIELDS = ["feed", "messages", "message_echoes", "messaging_postbacks"] as const;
 
 function read(name: string): string | null {
   const value = process.env[name]?.trim();
