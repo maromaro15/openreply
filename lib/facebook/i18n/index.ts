@@ -18,6 +18,10 @@ type Placeholders<S extends string> = S extends `${string}{${infer Name}}${infer
 type MessageArgs<K extends FbMessageKey> = [Placeholders<K>] extends [never]
   ? []
   : [values: Record<Placeholders<K>, string | number>];
+/** Keys without placeholders: safe to store in tables (menus, titles). */
+export type FbStaticKey = {
+  [K in FbMessageKey]: [Placeholders<K>] extends [never] ? K : never;
+}[FbMessageKey];
 
 const arabic: Record<FbMessageKey, string> = ar;
 
@@ -47,7 +51,9 @@ export function createFbI18n(locale: string) {
 export type FbI18n = ReturnType<typeof createFbI18n>;
 
 /** Top bar titles for the screens of these modules. */
-export function moduleTitle(pathname: string): FbMessageKey | null {
-  if (pathname === "/agency" || pathname.startsWith("/agency/")) return "Brands";
+export function moduleTitle(pathname: string): FbStaticKey | null {
+  const under = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+  if (under("/agency")) return "Brands";
+  if (under("/facebook/pages")) return "Facebook Pages";
   return null;
 }

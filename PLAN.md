@@ -709,6 +709,8 @@ model AlertDelivery {                  // delivery log + idempotency
 
 **الفصل:** `DELETE /{page-id}/subscribed_apps` كمحاولة دون ضمان، ثم `status=DISCONNECTED` ومسح الـ token. يبقى السجل والمحادثات، وإعادة الربط تعيد تفعيل الصفحة.
 
+**الحذف (للمالك فقط):** صفحة مفصولة يمكن حذفها نهائياً مع حملاتها ومحادثاتها. هذا هو الطريق لنقل صفحة رُبطت بالبراند الخطأ إلى البراند الصحيح.
+
 **فحص يومي:** العامل يستدعي `debug_token` لكل صفحة. عند `190` أو `is_valid=false` تصبح الصفحة `TOKEN_INVALID` ويظهر تنبيه في الواجهة.
 
 ### 6.2 التعليقات (webhook: feed)
@@ -1114,6 +1116,8 @@ model AlertDelivery {                  // delivery log + idempotency
 | `agency-isolation.db.test.ts` | 3 | على **Postgres حقيقي**: عضو في البراند A لا يرى B ولو بـ cookie مزوّر، والعدادات لا تختلط بين البراندات، وقاعدة الدخول بالدعوة. يُوسَّع في المراحل التالية ليشمل الصفحات والمحادثات وقاعدة المعرفة والتنبيهات |
 | `fb-i18n.test.ts` | 3 | الكتالوج العربي للوحدات الجديدة كامل، والإنجليزية في اللغات الأخرى، وأسماء التصنيفات |
 | `page-connect.test.ts` | 4 | token من تطبيق آخر، صلاحيات ناقصة، token ينتهي، token مستخدم إلى صفحات، صفحة مربوطة ببراند آخر، فشل الاشتراك، أدوار المستخدم |
+| `pages-api.test.ts` | 4 | الأدوار (العضو يقرأ فقط)، ورفض الطلب من موقع آخر، وتنظيف معرّفات الصفحات، والحذف للمالك فقط، والمنشورات من صفحات البراند فقط |
+| `pages.db.test.ts` | 4 | على **Postgres حقيقي**: صفحة لبراند واحد فقط، والـ token مشفّر ولا يُعاد في القوائم، وبراند لا يعدّل ولا يفصل ولا يحذف صفحة غيره، والحذف يحرّر الصفحة لبراند آخر |
 | `webhook-route.test.ts` | 5 | التحقق GET، الرد 401 و200، إنشاء الـ jobs بـ jobId حتمي، الصفحات غير المربوطة |
 | `comment-worker.test.ts` | 5 | تطابق وعدم تطابق، 7 أيام، أولوية الحملات، job مكرر، UNCONFIRMED بلا إعادة، rate limit مع الإيقاف والإعادة، fallback للنص، استقلال الرد العلني، إنشاء المحادثة بالـ PSID |
 | `rate-limit-namespace.redis.test.ts` | 5 | على **Redis حقيقي**: مفاتيح `fb:` لا تتداخل مع حسابات Instagram. يُتخطّى بدون `TEST_REDIS_URL` |
@@ -1156,7 +1160,7 @@ npm run build                                          # في المراحل ا�
 | **1** ✅ | قاعدة البيانات: كل النماذج (Facebook، قاعدة المعرفة، التنبيهات، التوجيه، الأحداث)، والـ migration، و`prisma generate` | `migration-safety` و`schema.db`، وكل الاختبارات القديمة |
 | **2** ✅ | الأساس الصافي: `lib/facebook/env.ts`، و`graph.ts` (عميل Graph مع تصنيف الأخطاء و`metadata`)، و`webhook.ts` (التوقيع، وتحليل feed وmessages والـ echoes، وتمييز الـ echo)، و`keywords.ts` | `webhook-signature` و`webhook-parse` و`echo-classify` و`graph-client` و`keywords` |
 | **3** ✅ | الوكالة: قراءة البراند المختار، وserver action للتبديل، والبنود 13 إلى 15، وصفحة `/agency` (القائمة والعدادات والإنشاء والفريق)، والمبدّل في الشريط الجانبي، وكتالوج الترجمة للوحدات الجديدة | `agency-workspace` و`agency-api` و`agency-isolation.db` و`fb-i18n`، و17 فحصاً في المتصفح |
-| **4** | ربط الصفحات: التحقق والاشتراك في الحقول الثلاثة، والـ API، وصفحة `/facebook/pages` | `page-connect` |
+| **4** ✅ | ربط الصفحات: التحقق والاشتراك في الحقول الثلاثة، والـ API، وصفحة `/facebook/pages` (الربط، وإعداد الـ webhook، وتشغيل البوت وإيقافه، والفصل والحذف) | `page-connect` و`pages-api` و`pages.db`، و16 فحصاً في المتصفح |
 | **5** | الـ webhook والطابور والعامل والتعليقات: الـ route، و`facebook-processing`، و`worker/facebook-worker.ts` (مع heartbeat وفحص يومي)، والرد الخاص والعلني، وواجهة الحملات وسجل التعليقات | `webhook-route` و`comment-worker` و`rate-limit-namespace` |
 | **6** | الرسائل والـ echoes وصندوق Messenger: الحفظ، والنافذة، ومعالجة `message_echoes`، وواجهة `/facebook/inbox` بشارات التصنيف وفلاترها، ورد الإنسان، والتولّي والإرجاع | `message-worker` و`inbox-api` |
 | **7** | قاعدة المعرفة والبوت والتصنيف: الـ API والواجهة، وعميل Gemini، والـ prompt، والحارس، والتصنيف، وjob الرد، وأحداث `HANDOFF`، و«جرّب البوت» | `knowledge-api` و`gemini-client` و`bot-prompt` و`bot-guard` و`bot-classify` و`bot-reply` |

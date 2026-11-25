@@ -8,7 +8,7 @@
 
 import LanguageSwitcher from "@/components/language-switcher";
 import WorkspaceSwitcher from "@/components/agency/workspace-switcher";
-import type { FbMessageKey } from "@/lib/facebook/i18n";
+import type { FbStaticKey } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
@@ -29,7 +29,8 @@ const navItems = [
 
 // Screens of the agency and Facebook modules. Their copy lives in
 // lib/facebook/i18n, so the existing catalogs need no new keys.
-const moduleNavSections: { title: FbMessageKey; items: { label: FbMessageKey; href: string }[] }[] = [
+const moduleNavSections: { title: FbStaticKey; items: { label: FbStaticKey; href: string }[] }[] = [
+  { title: "Facebook", items: [{ label: "Pages", href: "/facebook/pages" }] },
   { title: "Agency", items: [{ label: "Brands", href: "/agency" }] },
 ];
 
