@@ -92,13 +92,48 @@ export interface AlertSendJob {
   deliveryId: string;
 }
 
+// ─── Filling the catalog and the knowledge base (phase 14) ──────────────────
+
+export const KB_POSTS_JOB = "kb-posts";
+
+/** Read a Page's recent posts into DRAFT products (lib/knowledge/posts.ts). */
+export interface KnowledgePostsJob {
+  workspaceId: string;
+  facebookPageId: string;
+  /** How many recent posts to read. */
+  limit?: number;
+  requestedByUserId?: string | null;
+}
+
+export const KB_CONVERSATIONS_JOB = "kb-conversations";
+
+/** Read a Page's past Messenger answers into suggestions (lib/knowledge/conversations.ts). */
+export interface KnowledgeConversationsJob {
+  workspaceId: string;
+  facebookPageId: string;
+  /** How many recent threads to read. */
+  limit?: number;
+  requestedByUserId?: string | null;
+}
+
+export const KB_LEARN_JOB = "kb-learn";
+
+/** A person answered a handed-off conversation: suggest keeping the answer (lib/knowledge/learning.ts). */
+export interface KnowledgeLearnJob {
+  /** The person's outbound FacebookMessage row. */
+  messageId: string;
+}
+
 export type FacebookJob =
   | FacebookCommentJob
   | FacebookMessageJob
   | FacebookBotReplyJob
   | FacebookTranscribeJob
   | FacebookRecognizeJob
-  | AlertSendJob;
+  | AlertSendJob
+  | KnowledgePostsJob
+  | KnowledgeConversationsJob
+  | KnowledgeLearnJob;
 
 let queue: Queue<FacebookJob> | null = null;
 
@@ -151,4 +186,13 @@ export function botReplyJobId(conversationId: string, triggerMid: string): strin
 /** Message IDs ("m_…") may hold any character; always encoded. */
 export function messageJobId(pageId: string, mid: string, kind: FacebookMessageJob["kind"] = "message"): string {
   return `${kind === "echo" ? "fbe" : "fbm"}_${jobIdPart(pageId)}_${Buffer.from(mid).toString("base64url")}`;
+}
+
+/** One run per Page at a time: a second click while one runs joins it. */
+export function knowledgeSourceJobId(kind: "posts" | "conversations", facebookPageId: string): string {
+  return `${kind === "posts" ? "kbp" : "kbc"}_${jobIdPart(facebookPageId)}`;
+}
+
+export function learnJobId(messageId: string): string {
+  return `kbl_${jobIdPart(messageId)}`;
 }

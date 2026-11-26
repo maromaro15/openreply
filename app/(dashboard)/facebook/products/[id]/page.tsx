@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import DraftActions from "@/components/facebook/draft-actions";
 import ProductEditor, { type ProductDetail, type TemplateAttribute } from "@/components/facebook/product-editor";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 
@@ -13,6 +14,8 @@ export default function ProductPage() {
   const { t } = useFbI18n();
   const [data, setData] = useState<Loaded | null>(null);
   const [missing, setMissing] = useState(false);
+  // Bumped when a draft is approved: the card is read again, as an active one.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +39,7 @@ export default function ProductPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, version]);
 
   if (missing) {
     return (
@@ -49,13 +52,19 @@ export default function ProductPage() {
     );
   }
   if (!data) return <div className="panel h-64 rounded" />;
+  const canEdit = data.role === "OWNER" || data.role === "ADMIN";
   return (
-    <ProductEditor
-      // Opening another product from here (an alternative) starts a fresh form.
-      key={data.product.id}
-      product={data.product}
-      template={data.attributes}
-      canEdit={data.role === "OWNER" || data.role === "ADMIN"}
-    />
+    <div className="space-y-4">
+      {data.product.status === "DRAFT" && (
+        <DraftActions productId={data.product.id} canEdit={canEdit} onApproved={() => setVersion((current) => current + 1)} />
+      )}
+      <ProductEditor
+        // Opening another product from here (an alternative) starts a fresh form.
+        key={`${data.product.id}:${version}`}
+        product={data.product}
+        template={data.attributes}
+        canEdit={canEdit}
+      />
+    </div>
   );
 }

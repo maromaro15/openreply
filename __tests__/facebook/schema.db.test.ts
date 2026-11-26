@@ -49,7 +49,13 @@ const NEW_TABLES = [
   "ProductImage",
   "ProductRelation",
   "ProductVariant",
-];
+  // Phase 14: filling the catalog and the knowledge base.
+  "KnowledgeInterview",
+  "KnowledgeSuggestion",
+  "PostRead",
+  "TelegramChatSeen",
+  "TelegramCursor",
+].sort();
 
 function readMigration(name: string): string {
   return readFileSync(path.join(MIGRATIONS_DIR, name, "migration.sql"), "utf8");

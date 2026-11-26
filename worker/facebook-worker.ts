@@ -10,11 +10,14 @@ import { createFacebookWorker } from "@/lib/facebook/worker";
 import { recordFacebookHeartbeat } from "@/lib/facebook/health";
 import { runDailyMaintenance } from "@/lib/facebook/maintenance";
 import { sweepUnqueuedHandoffs } from "@/lib/alerts/dispatch";
+import { startTelegramPolling } from "@/lib/knowledge/telegram-poller";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
 
 const worker = createFacebookWorker();
+// The brands' Telegram bots: the voice interview's answers (PLAN.md 6.15).
+const telegram = startTelegramPolling();
 const startedAt = new Date().toISOString();
 
 console.log("[Facebook worker] Started");
@@ -54,6 +57,7 @@ async function shutdown(signal: string) {
   clearInterval(heartbeatTimer);
   clearInterval(maintenanceTimer);
   clearTimeout(maintenanceStart);
+  await telegram.stop();
   // Lets running jobs finish; their claims make a restart safe either way.
   await worker.close();
   process.exit(0);

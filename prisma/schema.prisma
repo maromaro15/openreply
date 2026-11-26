@@ -993,6 +993,8 @@ model Product {
   source      ProductSource @default(MANUAL)
   /// The post, conversation or interview it came from.
   sourceRef   String?
+  /// The words a draft was read from (a post's sentence), shown while it waits for a person.
+  sourceNote  String?
   name        String
   /// The product's code or number, as written.
   code        String?
@@ -1024,6 +1026,7 @@ model Product {
   related   ProductRelation[]  @relation("ProductRelationFrom")
   relatedBy ProductRelation[]  @relation("ProductRelationTo")
   campaigns FacebookCampaign[]
+  suggestions KnowledgeSuggestion[]
 
   @@unique([workspaceId, codeKey])
   @@index([workspaceId, status])
@@ -1092,4 +1095,98 @@ model ProductRelation {
   related Product @relation("ProductRelationTo", fields: [relatedId], references: [id], onDelete: Cascade)
 
   @@unique([productId, relatedId])
+}
+
+// ─── Filling the catalog and the knowledge base (phase 14) ──────────────────
+// workspaceId without a relation to Workspace, like the catalog tables above.
+
+enum SuggestionSource {
+  POST
+  CONVERSATION
+  INTERVIEW
+  HANDOFF_REPLY
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// A suggestion to enrich a product card or the knowledge base. Applied only when a person approves it.
+model KnowledgeSuggestion {
+  id              String           @id @default(cuid())
+  workspaceId     String
+  source          SuggestionSource
+  /// The thread, message, interview or post it came from.
+  sourceRef       String?
+  productId       String?
+  /// "faq" | "delivery" | "product.strengths" | "product.objections" | "product.comparisons" | "product.suitableFor"
+  target          String
+  /// { question, answer } | { text } | { items }
+  payload         Json
+  /// The words it came from (a quote, a transcript), for the person who reviews it.
+  evidence        String?
+  /// Set when a re-run could offer the same suggestion again: it is stored once.
+  dedupeKey       String?
+  status          SuggestionStatus @default(PENDING)
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime         @default(now())
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, dedupeKey])
+  @@index([workspaceId, status, createdAt])
+}
+
+/// The voice interview on Telegram, product by product and question by question.
+model KnowledgeInterview {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  /// The Telegram chat the questions go to.
+  chatId          String
+  /// ACTIVE | DONE | STOPPED (lib/knowledge/interview.ts)
+  status          String
+  productIds      String[]
+  position        Int       @default(0)
+  question        Int       @default(0)
+  lastAskedAt     DateTime?
+  startedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([workspaceId, status])
+}
+
+/// The next Telegram update the worker reads, per brand's bot.
+model TelegramCursor {
+  workspaceId String   @id
+  /// The bot the offset belongs to (the token's numeric prefix): a new bot starts again from 0.
+  botId       String?
+  offset      BigInt   @default(0)
+  updatedAt   DateTime @updatedAt
+}
+
+/// Chats that wrote to the brand's bot, for the alerts' chat picker once the worker reads the updates.
+model TelegramChatSeen {
+  workspaceId String
+  chatId      String
+  title       String?
+  type        String
+  lastSeenAt  DateTime
+
+  @@id([workspaceId, chatId])
+}
+
+/// A Page post already read into drafts: the next reading skips it, so a draft a person rejected or merged never comes back.
+model PostRead {
+  workspaceId String
+  /// The post's ID on Facebook.
+  postId      String
+  /// How many drafts it gave.
+  drafts      Int      @default(0)
+  readAt      DateTime @default(now())
+
+  @@id([workspaceId, postId])
 }

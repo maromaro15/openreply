@@ -4,7 +4,7 @@
  * The brand's product catalog: search by name or code, filter, approve
  * drafts, archive. Owners and admins edit; members read.
  */
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { translateReason, type FbStaticKey } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
@@ -40,6 +40,8 @@ const SOURCES: Record<Exclude<Source, "MANUAL">, FbStaticKey> = {
 };
 
 const SEARCH_DELAY_MS = 300;
+/** The list API's largest page: more drafts than this show as "200+". */
+const DRAFT_COUNT_PAGE = 200;
 
 function productsUrl(view: { search: string; filter: Filter; availableOnly: boolean }, cursor: string | null): string {
   const params = new URLSearchParams();
@@ -50,9 +52,15 @@ function productsUrl(view: { search: string; filter: Filter; availableOnly: bool
   return `/api/catalog/products?${params.toString()}`;
 }
 
-export default function ProductsPage() {
+/** A link may open a tab: /facebook/products?status=DRAFT shows the drafts. */
+function filterOf(value: string | string[] | undefined): Filter {
+  return FILTERS.find((option) => option.value === value)?.value ?? "ALL";
+}
+
+export default function ProductsPage({ searchParams }: { searchParams: Promise<{ status?: string | string[] }> }) {
   const { t } = useFbI18n();
-  const [filter, setFilter] = useState<Filter>("ALL");
+  const requested = use(searchParams).status;
+  const [filter, setFilter] = useState<Filter>(() => filterOf(requested));
   const [availableOnly, setAvailableOnly] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -63,6 +71,7 @@ export default function ProductsPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [draftCount, setDraftCount] = useState<{ count: number; more: boolean } | null>(null);
 
   // The search runs once the person stops typing.
   useEffect(() => {
@@ -91,6 +100,24 @@ export default function ProductsPage() {
     };
   }, [search, filter, availableOnly, reloadKey, t]);
 
+  // The Drafts tab shows how many are waiting, whichever tab is open.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/catalog/products?status=DRAFT&take=${DRAFT_COUNT_PAGE}`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (!cancelled && payload?.success) {
+          setDraftCount({ count: payload.data.products.length, more: payload.data.nextCursor !== null });
+        }
+      })
+      .catch(() => {
+        // The count is a convenience: the tab works without it.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
   async function loadMore() {
     if (!nextCursor) return;
     setLoadingMore(true);
@@ -113,11 +140,16 @@ export default function ProductsPage() {
     setBusy(product.id);
     setError(null);
     try {
-      const response = await fetch(`/api/catalog/products/${product.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      // A draft goes through the draft route, which refuses a code another product already uses.
+      const approving = product.status === "DRAFT" && status === "ACTIVE";
+      const response = await fetch(
+        approving ? `/api/catalog/products/${product.id}/draft` : `/api/catalog/products/${product.id}`,
+        {
+          method: approving ? "POST" : "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(approving ? { action: "approve" } : { status }),
+        }
+      );
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.success) {
         setError(payload?.error ? translateReason(t, payload.error) : t("Something went wrong. Please try again."));
@@ -145,6 +177,14 @@ export default function ProductsPage() {
           >
             {t("Product attributes")}
           </Link>
+          {canEdit && (
+            <Link
+              href="/facebook/products/import"
+              className="rounded border border-border px-3 py-2 text-sm text-foreground hover:bg-surface-hover"
+            >
+              {t("Import from a spreadsheet")}
+            </Link>
+          )}
           {canEdit && (
             <Link
               href="/facebook/products/new"
@@ -181,6 +221,12 @@ export default function ProductsPage() {
               }`}
             >
               {t(option.label)}
+              {option.value === "DRAFT" && draftCount && draftCount.count > 0 && (
+                <span className="ms-1.5 rounded-full bg-warning/15 px-1.5 text-[11px] font-medium text-warning">
+                  {draftCount.count}
+                  {draftCount.more ? "+" : ""}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -189,6 +235,10 @@ export default function ProductsPage() {
           {t("Available only")}
         </label>
       </div>
+
+      {filter === "DRAFT" && (
+        <p className="text-sm text-muted">{t("Read from your Page's posts; approve, merge or reject each one.")}</p>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-error" dir="auto">
@@ -239,7 +289,9 @@ export default function ProductsPage() {
                       <span>{t("{count} colours or types", { count: product.variantCount })}</span>
                     )}
                     {!product.available && <span className="text-warning">{t("Not available")}</span>}
-                    {product.status === "DRAFT" && <span className="text-warning">{t("Draft")}</span>}
+                    {product.status === "DRAFT" && (
+                      <span className="rounded-full bg-warning/15 px-2 py-0.5 font-medium text-warning">{t("Draft")}</span>
+                    )}
                     {product.status === "ARCHIVED" && <span>{t("In the archive")}</span>}
                     {product.source !== "MANUAL" && <span>{t(SOURCES[product.source])}</span>}
                   </span>

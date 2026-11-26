@@ -225,6 +225,144 @@ function MessageBubble({ message, fb, locale, now }: { message: ThreadMessage; f
   );
 }
 
+/** A reply written by a person (inbox or Meta Business Suite), already sent. */
+function isPersonReply(message: ThreadMessage): boolean {
+  return (
+    message.direction === "OUTBOUND" &&
+    message.author === "HUMAN" &&
+    Boolean(message.text?.trim()) &&
+    (message.sendStatus === "SENT" || message.sendStatus === null)
+  );
+}
+
+const LEARN_QUESTION_MAX = 200;
+const LEARN_ANSWER_MAX = 1000;
+
+/**
+ * «Add to the knowledge base» under a person's reply: a small inline form,
+ * question and answer both editable. An admin's text becomes a FAQ entry at
+ * once; a member's waits for an admin (the server decides which).
+ */
+function LearnFromReply({ message, question, t }: { message: ThreadMessage; question: string; t: FbI18n["t"] }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [a, setA] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  function start() {
+    setQ(Array.from(question).slice(0, LEARN_QUESTION_MAX).join(""));
+    setA(Array.from(message.text ?? "").slice(0, LEARN_ANSWER_MAX).join(""));
+    setError(null);
+    setOpen(true);
+  }
+
+  async function save() {
+    if (saving || !q.trim() || !a.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/knowledge/from-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: message.id, question: q, answer: a }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (response.ok && payload?.success) {
+        const { mode, created } = payload.data as { mode: "entry" | "suggestion"; created: boolean };
+        setDone(
+          mode === "entry"
+            ? created
+              ? t("Added to the knowledge base.")
+              : t("Already in the knowledge base.")
+            : created
+              ? t("Sent to an admin for review.")
+              : t("Already waiting for review.")
+        );
+        setOpen(false);
+      } else {
+        setError(payload?.code === "full" ? t("The knowledge base is full.") : t("Something went wrong. Please try again."));
+      }
+    } catch {
+      setError(t("Could not reach the server. Please try again."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <p role="status" className="text-end text-[11px] text-success">
+        {done}
+      </p>
+    );
+  }
+  if (!open) {
+    return (
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={start}
+          className="text-[11px] text-muted underline-offset-2 hover:text-foreground hover:underline"
+        >
+          {t("Add to the knowledge base")}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="ms-auto w-full max-w-md space-y-2 rounded border border-border bg-surface p-3 text-xs">
+      <p className="text-muted">{t("Keep this answer so the bot can use it next time. An admin approves it first if you are not one.")}</p>
+      <label className="block">
+        <span className="text-muted">{t("Question")}</span>
+        <textarea
+          value={q}
+          onChange={(event) => setQ(event.target.value)}
+          maxLength={LEARN_QUESTION_MAX}
+          rows={2}
+          dir="auto"
+          className="mt-1 block w-full resize-y rounded border border-border bg-surface px-2 py-1.5 text-sm text-foreground"
+        />
+      </label>
+      <label className="block">
+        <span className="text-muted">{t("Answer")}</span>
+        <textarea
+          value={a}
+          onChange={(event) => setA(event.target.value)}
+          maxLength={LEARN_ANSWER_MAX}
+          rows={4}
+          dir="auto"
+          className="mt-1 block w-full resize-y rounded border border-border bg-surface px-2 py-1.5 text-sm text-foreground"
+        />
+      </label>
+      {error && (
+        <p role="alert" className="text-error">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => setOpen(false)}
+          className="rounded border border-border px-3 py-1.5 font-medium text-foreground hover:bg-surface-hover disabled:opacity-60"
+        >
+          {t("Cancel")}
+        </button>
+        <button
+          type="button"
+          disabled={saving || !q.trim() || !a.trim()}
+          onClick={() => void save()}
+          className="rounded bg-accent px-3 py-1.5 font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+        >
+          {saving ? t("Saving…") : t("Save")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function MessengerInbox({
   initialConversationId,
   switchToWorkspaceId,
@@ -492,6 +630,20 @@ export default function MessengerInbox({
         ...thread!.events.map((event) => ({ at: event.createdAt, key: `e-${event.id}`, event })),
       ].sort((a, b) => a.at.localeCompare(b.at))
     : [];
+
+  // For each person's reply, the customer's last message before it.
+  const questionFor = new Map<string, string>();
+  let lastCustomer = "";
+  for (const item of timeline) {
+    const message = item.message;
+    if (!message) continue;
+    if (message.direction === "INBOUND") {
+      const spoken = (message.text ?? message.transcript ?? "").trim();
+      if (spoken) lastCustomer = spoken;
+    } else if (isPersonReply(message)) {
+      questionFor.set(message.id, lastCustomer);
+    }
+  }
 
   const counts = list?.counts;
 
@@ -765,7 +917,12 @@ export default function MessengerInbox({
                 ) : (
                   timeline.map((item) =>
                     item.message ? (
-                      <MessageBubble key={item.key} message={item.message} fb={fb} locale={locale} now={now} />
+                      <div key={item.key} className="space-y-1">
+                        <MessageBubble message={item.message} fb={fb} locale={locale} now={now} />
+                        {questionFor.has(item.message.id) && (
+                          <LearnFromReply message={item.message} question={questionFor.get(item.message.id) ?? ""} t={t} />
+                        )}
+                      </div>
                     ) : (
                       <p key={item.key} className="py-1 text-center text-[11px] text-zinc-500">
                         {eventText(item.event!, fb)} · {formatTime(item.event!.createdAt, locale, now)}

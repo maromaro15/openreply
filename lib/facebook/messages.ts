@@ -15,6 +15,7 @@ import type { Job } from "bullmq";
 import type { FacebookPage } from "@/app/generated/prisma/client";
 import { getBotDebounceMs } from "@/lib/ai/env";
 import { prisma } from "@/lib/db/client";
+import { queueHandoffLearning } from "@/lib/knowledge/jobs/learn";
 import { privateReplyTranscript } from "./comments";
 import {
   findOrCreateConversation,
@@ -272,8 +273,9 @@ async function recordExternalReply(page: FacebookPage, data: FacebookMessageJob)
   const sentAt = new Date(data.sentAt);
   const conversation = await findOrCreateConversation(page, data.psid);
   const attachment = primaryAttachment(data);
+  let stored: { id: string };
   try {
-    await prisma.facebookMessage.create({
+    stored = await prisma.facebookMessage.create({
       data: {
         workspaceId: page.workspaceId,
         conversationId: conversation.id,
@@ -298,6 +300,8 @@ async function recordExternalReply(page: FacebookPage, data: FacebookMessageJob)
   // They read the conversation where they answered it.
   await prisma.facebookConversation.update({ where: { id: conversation.id }, data: { unreadCount: 0 } });
   await takeOverConversation(conversation.id, { reason: "META_REPLY" });
+  // A person answering a handoff may have taught something: queue a look at it.
+  await queueHandoffLearning({ id: stored.id, text: data.text }, conversation);
   return "human_reply";
 }
 

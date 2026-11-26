@@ -7,6 +7,7 @@
  * person sees it and decides.
  */
 import { prisma } from "@/lib/db/client";
+import { queueHandoffLearning } from "@/lib/knowledge/jobs/learn";
 import { messageMetadata } from "./echoes";
 import { FacebookApiError, MESSENGER_TEXT_LIMIT, sendMessage, type SendResult } from "./graph";
 import { isUniqueViolation, messagePreview, touchLastMessage } from "./conversations";
@@ -96,6 +97,8 @@ export async function sendHumanReply({
   // Whoever answers by hand takes the conversation: the bot must not talk
   // over them.
   await takeOverConversation(conversation.id, { reason: "INBOX_TAKEOVER", actorUserId: userId });
+  // A person answering a handoff may have taught something: queue a look at it.
+  await queueHandoffLearning({ id: row.id, text }, conversation);
   return { ok: true, message: serializeMessage(saved) };
 }
 

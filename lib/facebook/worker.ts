@@ -15,6 +15,9 @@ import { recordFacebookWorkerAlert } from "./health";
 import { processMessageJob } from "./messages";
 import { processTranscribeJob } from "./transcription";
 import { processRecognizeJob } from "./image-recognition";
+import { processPostsJob } from "@/lib/knowledge/jobs/posts";
+import { processConversationsJob } from "@/lib/knowledge/jobs/conversations";
+import { processLearnJob } from "@/lib/knowledge/jobs/learn";
 import {
   ALERT_SEND_JOB,
   FACEBOOK_QUEUE,
@@ -23,6 +26,9 @@ import {
   FB_MESSAGE_JOB,
   FB_TRANSCRIBE_JOB,
   FB_RECOGNIZE_JOB,
+  KB_CONVERSATIONS_JOB,
+  KB_LEARN_JOB,
+  KB_POSTS_JOB,
   type AlertSendJob,
   type FacebookBotReplyJob,
   type FacebookCommentJob,
@@ -30,6 +36,9 @@ import {
   type FacebookMessageJob,
   type FacebookTranscribeJob,
   type FacebookRecognizeJob,
+  type KnowledgeConversationsJob,
+  type KnowledgeLearnJob,
+  type KnowledgePostsJob,
 } from "./queue";
 
 export async function dispatchFacebookJob(job: Job<FacebookJob>): Promise<string> {
@@ -46,6 +55,12 @@ export async function dispatchFacebookJob(job: Job<FacebookJob>): Promise<string
       return processRecognizeJob(job as Job<FacebookRecognizeJob>);
     case ALERT_SEND_JOB:
       return processAlertJob(job as Job<AlertSendJob>);
+    case KB_POSTS_JOB:
+      return processPostsJob(job as Job<KnowledgePostsJob>);
+    case KB_CONVERSATIONS_JOB:
+      return processConversationsJob(job as Job<KnowledgeConversationsJob>);
+    case KB_LEARN_JOB:
+      return processLearnJob(job as Job<KnowledgeLearnJob>);
     default:
       console.warn(`[Facebook worker] Unknown job "${job.name}" (${job.id}) skipped`);
       return "unknown_job";

@@ -692,11 +692,14 @@ async function createRelations(
   });
 }
 
-/** `input` comes from productInputSchema. MANUAL unless the caller says where the card came from. */
+/**
+ * `input` comes from productInputSchema. MANUAL unless the caller says where
+ * the card came from; a draft also keeps the words it was read from.
+ */
 export async function createProduct(
   workspaceId: string,
   input: ProductInput,
-  options: { source?: ProductSource; sourceRef?: string | null } = {}
+  options: { source?: ProductSource; sourceRef?: string | null; sourceNote?: string | null } = {}
 ): Promise<ProductResult> {
   const template = await listAttributes(workspaceId);
   const card = prepare(input, template);
@@ -704,7 +707,13 @@ export async function createProduct(
     if ((await tx.product.count({ where: { workspaceId } })) >= MAX_PRODUCTS) throw new Abort(fail("too_many"));
     const toAttach = await checkCard(tx, workspaceId, null, card);
     const { id } = await tx.product.create({
-      data: { workspaceId, source: options.source ?? "MANUAL", sourceRef: options.sourceRef || null, ...card.columns },
+      data: {
+        workspaceId,
+        source: options.source ?? "MANUAL",
+        sourceRef: options.sourceRef || null,
+        sourceNote: options.sourceNote?.trim().slice(0, 1000) || null,
+        ...card.columns,
+      },
       select: { id: true },
     });
     await attachImages(tx, workspaceId, id, toAttach);

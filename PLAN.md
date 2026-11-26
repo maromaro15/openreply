@@ -1371,6 +1371,29 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 - **قراءة Telegram:** العامل يقرأ رسائل البوت بـ `getUpdates` (long polling)، فلا حاجة لـ webhook عام. يحفظ المحادثات التي يراها في `TelegramChatSeen`، فيبقى زر «جلب المحادثات» في المرحلة 8 يعمل. إن كان للبوت webhook عند خدمة أخرى، تنبّه الواجهة إلى ذلك.
 - **شاشة المراجعة:** عدّاد في قاعدة المعرفة («5 اقتراحات للمراجعة»)، ولكل اقتراح مصدره (رابط المنشور أو المحادثة أو نص الفويس)، وأزرار اعتماد وتعديل ورفض. الاعتماد يكتب في البطاقة، ويُسجَّل من اعتمد ومتى.
 
+**ما نُفّذ في المرحلة 14:**
+
+- **الأساس كتبه الرئيسي أولاً:** الجداول (`KnowledgeSuggestion` و`KnowledgeInterview` و`TelegramCursor` و`TelegramChatSeen` و`PostRead`، و`Product.sourceNote`) في migrationين إضافيين، ومخزن الاقتراحات `lib/knowledge/suggestions.ts` الذي تكتب فيه كل المصادر، وأسماء الـ jobs وتوجيهها في العامل. ثم ستة أجزاء بالتوازي (الجدول في القسم 6، بعد جدول المراحل 12 إلى 16)، رُوجعت سطراً بسطر ودُمجت واحداً واحداً مع الاختبارات كاملة بعد كل دمج.
+- **استيراد Excel/CSV** (صفحة «استيراد المنتجات»): نموذج لكل براند بخصائصه، ومعاينة لكل سطر (يُضاف، يُحدَّث، خطأ وسببه)، والصور كمجلد تُربط بأسمائها.
+  - التأكيد يقرأ الملف من جديد ولا يثق بما أرسله المتصفح.
+  - المنتج الجديد نشط مباشرة لأن إنساناً كتبه وأكّده. والتحديث بالكود لا يمسّ إلا الأعمدة الموجودة في الملف: الصور والألوان غير المذكورة والمنتجات المرتبطة تبقى.
+  - استيراد نفس الملف مرتين لا يغيّر شيئاً.
+- **من المنشورات:** job يقرأ آخر منشورات الصفحة، فيصنع مسودات DRAFT بالاسم والكود والسعر والألوان والصورة الأولى، مع رابط المنشور وجملته.
+  - المنشور الذي قُرئ مرة لا يُقرأ ثانية (`PostRead`)، فما رفضه الإنسان أو دمجه لا يعود، ولا يُسأل الموديل مرتين.
+  - إن كان كود المنشور مستعملاً في منتج آخر، تُصنع المسودة بدونه، وتعرض البطاقة ذلك بلغة الواجهة وتقترح الدمج مع ذلك المنتج.
+  - للمسودة ثلاثة قرارات: اعتماد، أو دمج مع منتج موجود (يُنسخ فقط ما ينقصه)، أو رفض.
+- **من المحادثات القديمة:** job يقرأ ردود الصفحة على Messenger، فيصنع اقتراحات بشرط أن يكون لكل اقتراح دليل من كلام الصفحة نفسها، وأن يكون كل رقم فيه مكتوباً عند الصفحة في تلك المحادثة. ولا يُحفظ رقم هاتف ولا بريد.
+- **المقابلة الصوتية عبر Telegram:**
+  - يقرأ العامل بوت البراند بـ long polling، وفيه قارئ واحد لكل بوت (قفل Redis)، والموضع لا يتقدّم إلا بعد معالجة الرسالة.
+  - الأسئلة بالدارجة، والجواب فويس أو كتابة، والأوامر `/skip` و`/next` و`/status` و`/stop` و`/interview`.
+  - كل جواب يصبح اقتراحات للبطاقة، وأسئلة الزبائن تذهب إلى «الأسئلة والتخوّفات» في البطاقة نفسها.
+  - المقابلة تتوقف وحدها بعد 7 أيام بلا جواب، وزر «جلب المحادثات» في التنبيهات يبقى يعمل.
+- **حلقة التعلّم:** بعد رد إنسان على محادثة حوّلها البوت (من الـ Inbox أو من Meta Business Suite) يُقترح ما يصلح منه. وتحت كل رد لإنسان زر «أضف إلى قاعدة المعرفة»: المالك والمسؤول يضيفان مباشرة، والعضو يرسل اقتراحاً للمراجعة.
+- **شاشة الاقتراحات:** تجميع حسب المنتج، والدليل، ورابط المحادثة، وتعديل قبل الاعتماد. الاعتماد يتم في transaction واحدة، فالنقر مرتين أو مراجعان معاً لا يكتبان مرتين، ويُسجَّل من قرّر ومتى.
+- **في قاعدة المعرفة:** عدّاد الاقتراحات فوق التبويبات، وتبويب «طرق التعبئة» فيه الاستيراد والمصدران والمقابلة.
+- **متبقٍّ للمراحل التالية:** رسائل أخطاء الأسطر في معاينة الاستيراد ما زالت بالإنجليزية (المرحلة 15)، والمتغير `TELEGRAM_POLLING` يُوثَّق في المرحلة 16.
+- **تحقق حي (19 فحصاً):** عدّاد الاقتراحات، والتبويب الجديد، وتشغيل قراءة المنشورات بلا مفتاح AI مع سبب واضح، والاعتماد في قاعدة المعرفة وفي البطاقة، والرفض، وفتح تبويب المسودات من رابط، وبطاقة المسودة برابط المنشور وكود مستعمل، ورفض المسودة، والاستيراد (إضافة وتحديث)، وزر الـ Inbox، ولا تمرير أفقي على الهاتف في الشاشات الأربع. Graph وGemini وTelegram مختبرة بـ mock لأنها غير متاحة هنا.
+
 ### 6.16 شخصية البوت وهدفه ودليل البيع (المرحلة 11)
 
 **الإعدادات** (تبويب جديد في قاعدة المعرفة، يعدّله OWNER وADMIN):
@@ -1501,6 +1524,32 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 
 جداول المرحلتين 15 و17 تُكتب قبل بدئهما (تمسّان ملفات مشتركة أو تعتمدان على كل ما سبق).
 
+**جدول التوزيع لربط المرحلة 14 (الـ APIs والشاشات والـ jobs):**
+
+كتب الرئيسي أولاً كل ما هو مشترك، في commit أساس محلي (يُدمج في commit المرحلة): الجداول والـ migration، ودمج O وP وQ1 وQ2 وR وS، وأسماء الـ jobs في `lib/facebook/queue.ts` وتوجيهها في `lib/facebook/worker.ts`، وتشغيل قارئ Telegram في `worker/facebook-worker.ts`، ومخزن الاقتراحات `lib/knowledge/suggestions.ts` (`saveSuggestions`). الأجزاء الستة بعدها لا تتداخل في أي ملف، فتعمل معاً من ذلك الأساس.
+
+**ملف الترجمة:** `lib/facebook/i18n/ar.json` مشترك، فلكل جزء ملفه الخاص `lib/facebook/i18n/ar-p14-<الجزء>.json` يضع فيه نصوصه الجديدة بالعربية. يدمجها الرئيسي في `ar.json` ثم يحذف الملفات الستة.
+
+**ما يركّبه الرئيسي بعد الدمج:** مكوّنات U3 وU4 وعدّاد U2a في صفحة قاعدة المعرفة، ورابط شاشة الاقتراحات.
+
+| الجزء | المهمة | الملفات المسموح بتعديلها حصرياً | الموديل والجهد |
+| --- | --- | --- | --- |
+| U1 `import` | استيراد Excel/CSV: تحميل النموذج، ورفع الملف ومجلد الصور، والمعاينة، والتأكيد الذي يُنشئ أو يحدّث بالكود ويربط الصور | `lib/catalog/import/apply.ts`، `app/api/catalog/import/**`، `app/(dashboard)/facebook/products/import/page.tsx`، `components/facebook/product-import.tsx`، `__tests__/facebook/import-api.test.ts`، `lib/facebook/i18n/ar-p14-import.json` | Sonnet، عالٍ |
+| U2a `review` | شاشة الاقتراحات: القائمة والعدّاد، والاعتماد (مع التعديل) الذي يكتب في البطاقة أو قاعدة المعرفة، والرفض | `lib/knowledge/review.ts`، `app/api/knowledge/suggestions/**`، `app/(dashboard)/facebook/knowledge/suggestions/page.tsx`، `components/facebook/suggestions-review.tsx`، `components/facebook/suggestions-badge.tsx`، `__tests__/facebook/suggestions-review.test.ts`، `lib/facebook/i18n/ar-p14-review.json` | Sonnet، عالٍ |
+| U2b `drafts` | مسودات المنتجات (من المنشورات): شارة وتصفية في قائمة المنتجات، ومصدر المسودة في البطاقة، واعتماد أو دمج مع منتج بنفس الكود أو رفض، ورابط الاستيراد | `lib/catalog/drafts.ts`، `app/api/catalog/products/[id]/draft/route.ts`، `app/(dashboard)/facebook/products/page.tsx`، `app/(dashboard)/facebook/products/[id]/page.tsx`، `components/facebook/draft-actions.tsx`، `__tests__/facebook/product-drafts.test.ts`، `lib/facebook/i18n/ar-p14-drafts.json` | Sonnet، عالٍ |
+| U3 `sources` | job المنشورات (مسودات بصورها) وjob المحادثات (اقتراحات)، وAPIs التشغيل، ومكوّن الأزرار وحالة آخر تشغيل | `lib/knowledge/jobs/posts.ts`، `lib/knowledge/jobs/conversations.ts`، `app/api/knowledge/sources/**`، `components/facebook/knowledge-sources.tsx`، `__tests__/facebook/knowledge-sources.test.ts`، `lib/facebook/i18n/ar-p14-sources.json` | Sonnet، عالٍ |
+| U4 `interview` | قارئ Telegram (long polling، الـ cursor، المحادثات المرئية)، وتشغيل المقابلة (السؤال، الفويس، التفريغ، الاقتراحات، الأوامر)، وAPI البدء والإيقاف، ومكوّن المقابلة، وقراءة `TelegramChatSeen` في زر «جلب المحادثات» | `lib/knowledge/telegram-poller.ts`، `lib/knowledge/interview-run.ts`، `app/api/knowledge/interview/**`، `components/facebook/interview-panel.tsx`، `app/api/alerts/telegram/chats/route.ts`، `__tests__/facebook/interview-run.test.ts`، `lib/facebook/i18n/ar-p14-interview.json` | Opus، عالٍ |
+| U5 `learning` | حلقة التعلّم: job بعد رد الإنسان على محادثة محوّلة (من الـ Inbox أو Meta Business Suite)، وزر «أضف إلى قاعدة المعرفة» تحت رده في الـ Inbox | `lib/knowledge/jobs/learn.ts`، `lib/facebook/human-reply.ts`، `lib/facebook/messages.ts`، `components/facebook/messenger-inbox.tsx`، `app/api/knowledge/from-reply/route.ts`، `__tests__/facebook/learning-job.test.ts`، `lib/facebook/i18n/ar-p14-learning.json` | Sonnet، عالٍ |
+
+**جدول التوزيع للمرحلة 15 (العربية وRTL، البنود 6 إلى 11 الموافق عليها):**
+
+يعمل الجزءان بالتوازي مع المرحلة 14 لأنهما لا يلمسان أي ملف من ملفاتها، لكن الـ commit يبقى بالترتيب (14 ثم 15). البنود 6 إلى 9 (`lib/i18n/index.ts` و`server.ts` و`provider.tsx` و`components/language-switcher.tsx`) وأصناف `components/sidebar.tsx` يكتبها الرئيسي. وكتالوج الترجمة `lib/i18n/ar.json` ملف مشترك: الجزء V1 يكتب الترجمة في ملف مؤقت خارج المستودع، والرئيسي يراجعها ويضعها.
+
+| الجزء | المهمة | الملفات المسموح بتعديلها حصرياً | الموديل والجهد |
+| --- | --- | --- | --- |
+| V1 `ar-catalog` | ترجمة 470 نصاً من نصوص الواجهة الأصلية إلى العربية، بنفس المصطلحات المستعملة في شاشات Facebook | ملف مؤقت في مجلد العمل الخاص (scratchpad)، لا شيء في المستودع | Sonnet، متوسط |
+| V2 `rtl-classes` | البند 10: تحويل الأصناف الفيزيائية إلى منطقية في 9 ملفات (الشكل في LTR يبقى مطابقاً)، والبند 11: ذكر العربية وRTL في التوثيق | `app/(dashboard)/overview/page.tsx`، `components/campaign-preview.tsx`، `components/follower-chart.tsx`، `app/(dashboard)/campaigns/page.tsx`، `components/demo-notice.tsx`، `components/campaign-builder.tsx`، `app/(dashboard)/inbox/page.tsx`، `app/(dashboard)/integrations/page.tsx`، `app/(dashboard)/logs/page.tsx`، `docs/localization.md` | Sonnet، عالٍ |
+
 ---
 
 ## 7. متغيرات البيئة الجديدة
@@ -1619,7 +1668,13 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 | `conversation-mining.test.ts` | 14 | ردود الصفحة القديمة ← اقتراحات PENDING مربوطة بالمنتج، بلا تكرار |
 | `telegram-interview.test.ts` | 14 | الأسئلة منتجاً بمنتج، الفويس ← التفريغ ← اقتراح، `/skip` و`/stop`، المؤشر لا يقرأ الرسالة مرتين |
 | `learning-loop.test.ts` | 14 | رد الإنسان بعد التحويل يصبح اقتراحاً، وزر «أضف إلى قاعدة المعرفة» |
-| `suggestions-api.test.ts` | 14 | الاعتماد والتعديل والرفض، الأدوار، العزل بين البراندات، تسجيل من اعتمد |
+| `suggestions-store.test.ts` | 14 | ما يحفظه كل هدف من الاقتراح، والمنتج من نفس البراند، وعدم التكرار |
+| `suggestions-review.test.ts` | 14 | الاعتماد والتعديل والرفض، الأدوار، العزل بين البراندات، تسجيل من اعتمد، والسباق بين مراجعَين |
+| `import-api.test.ts` | 14 | النموذج والمعاينة والتأكيد، والتحديث الذي لا يمسّ إلا أعمدة الملف، والصور بأسمائها |
+| `product-drafts.test.ts` | 14 | اعتماد المسودة أو دمجها أو رفضها، والكود المستعمل، والمنتج المقترح للدمج |
+| `knowledge-sources.test.ts` | 14 | jobs المنشورات والمحادثات، والمنشور الذي لا يُقرأ مرتين، والأخطاء النهائية وإعادة المحاولة، وAPIs التشغيل |
+| `interview-run.test.ts` | 14 | قارئ Telegram والموضع والقفل، وتشغيل المقابلة والأوامر والفويس، والاقتراحات |
+| `learning-job.test.ts` | 14 | job التعلّم بعد التحويل، وزر الـ Inbox للمالك وللعضو |
 | `i18n-ar.test.ts` | 15 | الكتالوج العربي كامل، المتغيرات سليمة، `dir=rtl`، الإنجليزية تبقى الافتراضية |
 
 **بعد كل مرحلة** أشغّل الأوامر التالية وأرسل لك النتيجة:
@@ -1654,7 +1709,7 @@ npm run build                                          # في المراحل ا�
 | **11** ✅ | شخصية البوت وهدفه ودليل البيع (القسم 6.16): الإعدادات، والنسخة الافتراضية من الدليل، وحالة الزبون، وجمع الطلبية و`ORDER_READY`، وتوسيع الحارس | `bot-persona` و`bot-order` و`bot-state` و`bot-guard-claims` و`bot-persona-api`، وتوسيع `bot-guard` و`bot-reply` و`alerts-message`، و14 فحصاً حياً في المتصفح |
 | **12** ✅ | التعرّف على المنتج من صورة الزبون (القسم 6.13) | `image-download` و`image-codes` و`image-recognition` و`image-job`، وتوسيع `message-worker` و`bot-reply`، و6 فحوص حية |
 | **13** ✅ | إرسال صور الألوان والمقارنة بالـ carousel وزر «نحب هذا» (القسم 6.14) | `carousel` و`postback-parse` و`bot-actions` و`bot-actions-send` و`postback-flow`، وتوسيع `bot-reply` و`knowledge-api` و`env` و`page-connect` و`pages.db`، و8 فحوص حية |
-| **14** | طرق تعبئة المنتجات وشاشة المراجعة (القسم 6.15) | `xlsx-codec` و`csv-import` و`catalog-import` و`post-drafts` و`conversation-mining` و`telegram-interview` و`learning-loop` و`suggestions-api` |
+| **14** ✅ | طرق تعبئة المنتجات وشاشة المراجعة (القسم 6.15) | `xlsx-codec` و`csv-import` و`catalog-import` و`post-drafts` و`conversation-mining` و`telegram-interview` و`learning-loop` و`suggestions-store` و`suggestions-review` و`import-api` و`product-drafts` و`knowledge-sources` و`interview-run` و`learning-job`، و19 فحصاً حياً |
 | **15** | العربية وRTL: `ar.json`، والتعديلات 6 إلى 11، وكتالوج الوحدات الجديدة | `i18n-ar` و`npm run build` |
 | **16** | النشر: ملفات `deploy/vps/*`، وقسم `.env.example`، والتحقق بـ `docker compose config` والبناء | تشغيل الحاويات محلياً بدون Caddy |
 | **17** | الدليل العربي `docs/ar/facebook-messenger-guide.md`: تجهيز السيرفر، وتطبيق Meta (مع `message_echoes` و`messaging_postbacks`)، واستخراج الـ token، وإعداد الوكالة والفرق، والربط، والتعبئة (الكتالوج، والاستيراد، والمقابلة الصوتية، والمراجعة)، وشخصية البوت ودليل البيع، و**إنشاء بوت Telegram وجلب الـ Chat ID**، وإيقاف الردود الآلية لـ Meta، واختبار كل خاصية، واستكشاف الأخطاء، والتحديث والنسخ الاحتياطي | مراجعة الأوامر |

@@ -8,12 +8,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BotTester from "@/components/facebook/bot-tester";
+import InterviewPanel from "@/components/facebook/interview-panel";
+import KnowledgeSources from "@/components/facebook/knowledge-sources";
 import PersonaForm from "@/components/facebook/persona-form";
+import SuggestionsBadge from "@/components/facebook/suggestions-badge";
 import { translateReason, type FbI18n, type FbStaticKey } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 
 type Kind = "PRODUCT" | "DELIVERY" | "FAQ" | "RULE" | "INFO";
-type Tab = "settings" | "persona" | Kind | "test";
+type Tab = "settings" | "persona" | Kind | "fill" | "test";
 
 type Entry = {
   id: string;
@@ -431,11 +434,14 @@ export default function KnowledgePage() {
       value: kind as Tab,
       label: `${t(FIELDS[kind].tab)} (${entries?.filter((entry) => entry.kind === kind).length ?? 0})`,
     })),
+    { value: "fill", label: t("Ways to fill") },
     { value: "test", label: t("Try the bot") },
   ];
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
+      {/* What the posts, the conversations, the interview and the replies proposed: nothing applies before a review. */}
+      <SuggestionsBadge />
       <div className="flex flex-wrap gap-1 border-b border-border" role="tablist">
         {tabs.map((option) => (
           <button
@@ -483,6 +489,20 @@ export default function KnowledgePage() {
         <PersonaForm />
       ) : tab === "test" ? (
         <BotTester botEnabled={settings.settings.enabled} aiConfigured={settings.ai.configured} />
+      ) : tab === "fill" ? (
+        <div className="space-y-8">
+          <p className="text-sm text-muted">
+            {t("Fill the product cards and the knowledge base without typing everything: from a spreadsheet, from your Page, or by answering the bot's questions on Telegram. Nothing is used before you review it.")}
+          </p>
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded border border-border p-4 text-sm">
+            <p className="text-foreground">{t("You have your products in Excel? Download the template, fill it and import it, with a folder of pictures named by their codes.")}</p>
+            <Link href="/facebook/products/import" className="shrink-0 rounded border border-border px-3 py-2 text-foreground hover:bg-surface-hover">
+              {t("Import from a spreadsheet")}
+            </Link>
+          </section>
+          <KnowledgeSources />
+          <InterviewPanel />
+        </div>
       ) : (
         <div className="space-y-5">
           <p className="text-sm text-muted">{t(FIELDS[tab].help)}</p>
