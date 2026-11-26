@@ -87,7 +87,7 @@ export default function SeoPageShell({ config }: { config: SeoPageConfig }) {
           <div className="compare body-6">
             <div className="compare-row">
               <div>Need</div>
-              <div>OpenReply</div>
+              <div>Amitec Reply</div>
               <div>Generic automation</div>
             </div>
             {config.comparisons.map((item) => (
@@ -144,7 +144,7 @@ export default function SeoPageShell({ config }: { config: SeoPageConfig }) {
             Turn the next high-intent comment into a private reply
           </h2>
           <p className="body-3" style={{ maxWidth: 560, marginInline: "auto" }}>
-            OpenReply works with Instagram professional accounts and official
+            Amitec Reply works with Instagram professional accounts and official
             Meta private replies, and its campaign reports are ones you can show
             clients.
           </p>

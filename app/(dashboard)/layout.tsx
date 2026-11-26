@@ -9,7 +9,7 @@ import { findSelectedMembership } from "@/lib/agency/active-workspace";
 
 export async function generateMetadata() {
   const { t } = await getI18n();
-  return { title: t("OpenReply - Open source Instagram comment-to-DM automation") };
+  return { title: t("Amitec Reply - Open source Instagram comment-to-DM automation") };
 }
 
 export default async function DashboardLayout({
@@ -33,6 +33,10 @@ export default async function DashboardLayout({
   );
   const workspace =
     (await findSelectedMembership(session.user.id))?.workspace ?? firstWorkspace;
+  const membership = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: workspace.id, userId: session.user.id } },
+    select: { role: true },
+  });
   const accounts = await prisma.instagramAccount.findMany({
     where: { workspaceId: workspace.id },
     orderBy: { connectedAt: "desc" },
@@ -45,6 +49,7 @@ export default async function DashboardLayout({
         workspaceName={workspace.name}
         instagramUsername={accounts[0]?.username ?? null}
         instagramAccountCount={accounts.length}
+        viewOnly={membership?.role === "VIEWER"}
       >
         {children}
       </DashboardShell>

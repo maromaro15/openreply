@@ -12,6 +12,7 @@ export type WorkspaceContext = {
 };
 
 const ROLE_ORDER: Record<WorkspaceRole, number> = {
+  VIEWER: 0,
   MEMBER: 1,
   ADMIN: 2,
   OWNER: 3,

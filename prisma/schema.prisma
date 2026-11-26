@@ -388,6 +388,8 @@ enum WorkspaceRole {
   OWNER
   ADMIN
   MEMBER
+  /// Sees the brand's campaigns, conversations and statistics; changes nothing.
+  VIEWER
 }
 
 enum WorkspaceInvitationStatus {

@@ -368,10 +368,13 @@ export default function MessengerInbox({
   initialConversationId,
   switchToWorkspaceId,
   linkForeign,
+  viewOnly = false,
 }: {
   initialConversationId: string | null;
   switchToWorkspaceId: string | null;
   linkForeign: boolean;
+  /** The VIEWER role: reads the conversations, no reply or change of hands. */
+  viewOnly?: boolean;
 }) {
   const { locale } = useI18n();
   const fb = useFbI18n();
@@ -504,7 +507,7 @@ export default function MessengerInbox({
             const next = payload.data as ConversationThread;
             setThread(next);
             setThreadMissing(false);
-            if (next.conversation.unreadCount > 0) {
+            if (next.conversation.unreadCount > 0 && !viewOnly) {
               // Open means read. Fire and forget: the next refresh shows it.
               void fetch(`/api/facebook/conversations/${encodeURIComponent(activeId)}`, {
                 method: "PATCH",
@@ -532,7 +535,7 @@ export default function MessengerInbox({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [switching, activeId, reloadKey]);
+  }, [switching, activeId, reloadKey, viewOnly]);
 
   // Keep the thread pinned to its latest message.
   const messageCount = thread?.messages.length ?? 0;
@@ -842,7 +845,7 @@ export default function MessengerInbox({
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                    {(conversation.mode === "BOT" || conversation.needsHuman) && (
+                    {!viewOnly && (conversation.mode === "BOT" || conversation.needsHuman) && (
                       <button
                         type="button"
                         disabled={acting}
@@ -852,7 +855,7 @@ export default function MessengerInbox({
                         {t("Take over")}
                       </button>
                     )}
-                    {conversation.mode === "HUMAN" && (
+                    {!viewOnly && conversation.mode === "HUMAN" && (
                       <button
                         type="button"
                         disabled={acting}
@@ -920,7 +923,7 @@ export default function MessengerInbox({
                     item.message ? (
                       <div key={item.key} className="space-y-1">
                         <MessageBubble message={item.message} fb={fb} locale={locale} now={now} />
-                        {questionFor.has(item.message.id) && (
+                        {!viewOnly && questionFor.has(item.message.id) && (
                           <LearnFromReply message={item.message} question={questionFor.get(item.message.id) ?? ""} t={t} />
                         )}
                       </div>
@@ -933,6 +936,7 @@ export default function MessengerInbox({
                 )}
               </div>
 
+              {!viewOnly && (
               <div className="shrink-0 border-t border-border p-3">
                 {sendError && (
                   <p role="alert" className="mb-2 text-xs text-error">
@@ -979,6 +983,7 @@ export default function MessengerInbox({
                   </>
                 )}
               </div>
+              )}
             </>
           )}
         </div>

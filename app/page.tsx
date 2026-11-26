@@ -27,15 +27,15 @@ import { DemoNotice } from "@/components/demo-notice";
 import "./site.css";
 
 export const metadata: Metadata = {
-  title: "OpenReply - Open source Instagram comment-to-DM automation",
+  title: "Amitec Reply - Open source Instagram comment-to-DM automation",
   description:
     "A free, self-hosted ManyChat alternative. Turn Instagram keyword comments into automatic private replies. Connect through your own Meta app or optional paid provider Zernio.",
 };
 
 const faqs: Array<{ q: string; a: React.ReactNode }> = [
   {
-    q: "Is OpenReply free?",
-    a: "Yes. OpenReply is MIT-licensed software with no software subscription or seat limits. You pay for your own infrastructure and any optional services you choose, including Zernio.",
+    q: "Is Amitec Reply free?",
+    a: "Yes. Amitec Reply is MIT-licensed software with no software subscription or seat limits. You pay for your own infrastructure and any optional services you choose, including Zernio.",
   },
   {
     q: "Can I use the public demo to send DMs?",
@@ -53,7 +53,7 @@ const faqs: Array<{ q: string; a: React.ReactNode }> = [
     a: (
       <>
         No. Zernio is an optional paid connection provider and sponsor. It can
-        spare you setting up your own Meta app, while OpenReply still runs on
+        spare you setting up your own Meta app, while Amitec Reply still runs on
         your infrastructure. The direct Meta path stays available.{" "}
         <a
           href={zernioLink({ placement: "landing-faq" })}
@@ -68,7 +68,7 @@ const faqs: Array<{ q: string; a: React.ReactNode }> = [
   },
   {
     q: "Does it work with TikTok, Facebook, or WhatsApp?",
-    a: "No. OpenReply is built for Instagram only. It handles comments on posts and reels, direct messages, and text replies to Stories.",
+    a: "No. Amitec Reply is built for Instagram only. It handles comments on posts and reels, direct messages, and text replies to Stories.",
   },
   {
     q: "Which Instagram accounts can I connect?",
@@ -104,12 +104,12 @@ export default function Home() {
             <br className="desktop-break" /> into private replies.
           </h1>
           <p className="hero-sub body-3">
-            When someone comments a keyword on your post or reel, OpenReply
+            When someone comments a keyword on your post or reel, Amitec Reply
             sends them a DM automatically. Free, open source, self-hosted.
           </p>
           <div className="hero-actions">
             <a className="btn btn-primary btn-lg button-md" href={SETUP_DOCS_URL}>
-              Set up OpenReply <ArrowUpRightIcon />
+              Set up Amitec Reply <ArrowUpRightIcon />
             </a>
             <a className="link button-sm" href="#how">
               See how it works <ArrowDownIcon />
@@ -176,7 +176,7 @@ export default function Home() {
         </section>
 
         {/* Tagline reveal */}
-        <section className="tagline wrap" aria-label="What OpenReply does">
+        <section className="tagline wrap" aria-label="What Amitec Reply does">
           <TaglineReveal
             lines={[
               "Someone comments GUIDE.",
@@ -291,7 +291,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="step-text">
-                <h3 className="heading-6">3. OpenReply handles the rest</h3>
+                <h3 className="heading-6">3. Amitec Reply handles the rest</h3>
                 <p className="body-6">
                   Incoming events trigger your campaigns. A background worker
                   queues, rate-limits, and logs each send, with retries and
@@ -350,7 +350,7 @@ export default function Home() {
               <div className="cell-text">
                 <h3 className="heading-6">Inbox</h3>
                 <p className="body-6">
-                  Read conversations and reply from OpenReply, within
+                  Read conversations and reply from Amitec Reply, within
                   Instagram’s messaging window.
                 </p>
               </div>
@@ -425,7 +425,7 @@ export default function Home() {
             <div>
               <h2 className="heading-4">Open code you can inspect.</h2>
               <p className="body-6">
-                OpenReply owns the campaigns, keyword matching, queues, retries,
+                Amitec Reply owns the campaigns, keyword matching, queues, retries,
                 logs, and inbox. Your connection provider handles the Instagram
                 API.
               </p>
@@ -456,10 +456,10 @@ export default function Home() {
         {/* Setup */}
         <section id="setup" className="section wrap" style={{ scrollMarginTop: 96, paddingTop: 16 }}>
           <Reveal className="section-head">
-            <h2 className="heading-4">Self-host OpenReply. Choose your connection.</h2>
+            <h2 className="heading-4">Self-host Amitec Reply. Choose your connection.</h2>
             <p className="body-3">
               Both options need your own web app, background worker, PostgreSQL,
-              and Redis. OpenReply is free software; hosting and provider costs
+              and Redis. Amitec Reply is free software; hosting and provider costs
               are separate.
             </p>
           </Reveal>
@@ -475,8 +475,8 @@ export default function Home() {
                 choose a profile, and connect your account.
               </p>
               <ul className="body-6">
-                <li>No Meta app secrets to configure in OpenReply</li>
-                <li>OpenReply registers the webhook for you</li>
+                <li>No Meta app secrets to configure in Amitec Reply</li>
+                <li>Amitec Reply registers the webhook for you</li>
                 <li>Optional paid service and project sponsor</li>
               </ul>
               <div className="provider-links">
@@ -541,7 +541,7 @@ export default function Home() {
             </p>
             <div className="hero-actions">
               <a className="btn btn-primary btn-lg button-md" href={SETUP_DOCS_URL}>
-                Set up OpenReply <ArrowUpRightIcon />
+                Set up Amitec Reply <ArrowUpRightIcon />
               </a>
               <a className="link button-sm" href={GITHUB_URL}>
                 Star on GitHub <ArrowUpRightIcon />

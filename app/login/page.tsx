@@ -15,7 +15,7 @@ const SETUP_DOCS_URL = `${GITHUB_URL}/blob/main/docs/setup.md`;
 export async function generateMetadata() {
   const { t } = await getI18n();
   return {
-    title: t("Login - OpenReply"),
+    title: t("Login - Amitec Reply"),
     description: t("Sign in to manage Instagram comment-to-DM campaigns."),
   };
 }
@@ -41,7 +41,7 @@ export default async function LoginPage({
             <div className="auth-head">
               <h1 className="heading-5">{t("Sign-in is off on this demo")}</h1>
               <p className="body-6">
-                {t("This is the public demo — it doesn’t create real accounts or send DMs. To use OpenReply for real, clone it and run your own instance with your own Meta app and domain.")}
+                {t("This is the public demo — it doesn’t create real accounts or send DMs. To use Amitec Reply for real, clone it and run your own instance with your own Meta app and domain.")}
               </p>
             </div>
             <a
@@ -90,7 +90,7 @@ export default async function LoginPage({
                 ) : (
                   <>
                     <LogoMark className="wordmark-mark" />
-                    <span>OpenReply</span>
+                    <span>Amitec Reply</span>
                   </>
                 )}
               </h1>

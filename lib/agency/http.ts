@@ -10,6 +10,19 @@ import {
   type WorkspaceContext,
 } from "@/lib/workspace-access";
 
+export function viewOnlyResponse(): Response {
+  return jsonError(403, "View only: you cannot change anything in this brand.");
+}
+
+/**
+ * For the routes that do not go through requireWorkspace: a viewer reads,
+ * and every change is refused.
+ */
+export async function rejectViewer(): Promise<Response | null> {
+  const context = await getCurrentWorkspaceContext();
+  return context?.role === "VIEWER" ? viewOnlyResponse() : null;
+}
+
 export function jsonError(status: number, error: string) {
   return NextResponse.json({ success: false, error }, { status });
 }
@@ -52,7 +65,11 @@ export async function requireWorkspace(
   }
   const context = await getCurrentWorkspaceContext();
   if (!context) return jsonError(401, "Unauthorized");
-  if (!hasWorkspaceRole(context.role, minimumRole)) {
+  const reads = request.method === "GET" || request.method === "HEAD";
+  // A viewer reads whatever a member reads, and changes nothing.
+  if (context.role === "VIEWER") {
+    if (!(reads && minimumRole === "MEMBER")) return viewOnlyResponse();
+  } else if (!hasWorkspaceRole(context.role, minimumRole)) {
     return jsonError(403, "Only workspace owners and admins can do this.");
   }
   return context;

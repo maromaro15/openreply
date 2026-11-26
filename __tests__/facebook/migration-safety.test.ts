@@ -16,6 +16,14 @@ import { describe, expect, it } from "vitest";
 const MIGRATIONS_DIR = path.join(__dirname, "..", "..", "prisma", "migrations");
 /** The branch's first migration: everything before it existed already. */
 const FIRST_BRANCH_MIGRATION = "20261125120000_facebook_messenger";
+/**
+ * Values the branch adds to enums that existed before it. Adding a value
+ * changes no row and no column; nothing else on an old type is allowed.
+ */
+const ADDED_TO_ORIGINAL_TYPES: Record<string, string[]> = {
+  // The read-only brand owner (20261130100000_workspace_viewer_role).
+  WorkspaceRole: ["VIEWER"],
+};
 const KNOWN_BRANCH_MIGRATIONS = [
   FIRST_BRANCH_MIGRATION,
   "20261126120000_product_catalog",
@@ -96,8 +104,10 @@ describe("this branch's migrations are additive only", () => {
       it("alters only the branch's own types, and only to add a value", () => {
         for (const statement of sql.match(/ALTER\s+TYPE[^;]*;/gi) ?? []) {
           const type = /ALTER\s+TYPE\s+"(\w+)"/i.exec(statement)?.[1] ?? "";
-          expect(ownTypes.has(type), `ALTER TYPE on ${type}, which is not the branch's`).toBe(true);
           expect(statement).toMatch(/\bADD\s+VALUE\b/i);
+          const value = /ADD\s+VALUE\s+'(\w+)'/i.exec(statement)?.[1] ?? "";
+          const allowed = ownTypes.has(type) || (ADDED_TO_ORIGINAL_TYPES[type] ?? []).includes(value);
+          expect(allowed, `ALTER TYPE on ${type}, which is not the branch's`).toBe(true);
         }
       });
 

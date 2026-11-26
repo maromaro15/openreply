@@ -54,6 +54,7 @@ const labels: Record<string, StaticMessageKey> = {
   OWNER: "Owner",
   ADMIN: "Admin",
   MEMBER: "Member",
+  VIEWER: "Viewer (view only)",
   all: "All",
   active: "Active",
   paused: "Paused",

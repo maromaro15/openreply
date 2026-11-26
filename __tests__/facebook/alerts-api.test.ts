@@ -61,7 +61,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   as("ADMIN");
   vi.stubEnv("RESEND_API_KEY", "re_test");
-  vi.stubEnv("EMAIL_FROM", "OpenReply <alerts@shop.dz>");
+  vi.stubEnv("EMAIL_FROM", "Amitec Reply <alerts@shop.dz>");
   vi.stubEnv("EMAIL_SERVER", "");
   vi.stubEnv("ALERTS_EMAIL_FROM", "");
   db.$transaction.mockImplementation(async (operations: unknown[]) => Promise.all(operations));
@@ -89,7 +89,7 @@ describe("/api/alerts/settings", () => {
     expect(body.data).toEqual({
       role: "MEMBER",
       telegram: { connected: true, username: "lina_alerts_bot" },
-      email: { configured: true, from: "OpenReply <alerts@shop.dz>" },
+      email: { configured: true, from: "Amitec Reply <alerts@shop.dz>" },
     });
     expect(JSON.stringify(body)).not.toContain("AAH_valid");
   });

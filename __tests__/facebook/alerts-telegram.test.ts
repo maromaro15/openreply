@@ -225,12 +225,12 @@ describe("isTelegramButtonUrl", () => {
 describe("telegramGetMe", () => {
   it("returns the bot's ID, username and name", async () => {
     answerWith(() =>
-      telegramOk({ id: 7012345678, is_bot: true, first_name: "OpenReply Alerts", username: "openreply_alerts_bot" })
+      telegramOk({ id: 7012345678, is_bot: true, first_name: "Amitec Reply Alerts", username: "openreply_alerts_bot" })
     );
     await expect(telegramGetMe(TOKEN, options)).resolves.toEqual({
       id: 7012345678,
       username: "openreply_alerts_bot",
-      firstName: "OpenReply Alerts",
+      firstName: "Amitec Reply Alerts",
     });
     const call = lastCall();
     expect(call.url).toBe(`${TELEGRAM_API_BASE}/bot${TOKEN}/getMe`);

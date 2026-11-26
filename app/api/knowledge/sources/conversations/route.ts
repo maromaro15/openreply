@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { readSource, startSource } from "../shared";
+import { rejectViewer } from "@/lib/agency/http";
 
 export const dynamic = "force-dynamic";
 
@@ -10,5 +11,7 @@ export async function GET(request: NextRequest) {
 
 /** `{ facebookPageId, limit? }`: start a run reading the Page's past answers into suggestions; an active run is joined. */
 export async function POST(request: NextRequest) {
+  const viewOnly = await rejectViewer();
+  if (viewOnly) return viewOnly;
   return startSource(request, "conversations");
 }

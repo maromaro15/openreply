@@ -9,6 +9,7 @@ import { getCurrentWorkspaceContext } from "@/lib/workspace-access";
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function FacebookInboxPage({ searchParams }: { searchParams: SearchParams }) {
-  const link = await resolveInboxLink(await searchParams, await getCurrentWorkspaceContext());
-  return <MessengerInbox {...link} />;
+  const context = await getCurrentWorkspaceContext();
+  const link = await resolveInboxLink(await searchParams, context);
+  return <MessengerInbox {...link} viewOnly={context?.role === "VIEWER"} />;
 }

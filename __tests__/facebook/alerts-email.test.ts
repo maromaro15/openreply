@@ -19,7 +19,7 @@ const API_KEY = "re_Live_Secret_123";
 // Characters that must be URL-encoded, so the encoded and plain forms differ.
 const SMTP_PASSWORD = "s3cr3t/p@ss";
 const SMTP_URL = `smtps://alerts%40example.com:${encodeURIComponent(SMTP_PASSWORD)}@mail.example.com:465`;
-const FROM = "OpenReply <alerts@example.com>";
+const FROM = "Amitec Reply <alerts@example.com>";
 
 const email: AlertEmail = {
   to: "owner@example.com",
@@ -92,12 +92,12 @@ describe("configuration", () => {
 
   it("takes the sender from ALERTS_EMAIL_FROM, then EMAIL_FROM", () => {
     expect(getAlertsEmailFrom()).toBeNull();
-    vi.stubEnv("EMAIL_FROM", "  OpenReply <login@example.com> ");
-    expect(getAlertsEmailFrom()).toBe("OpenReply <login@example.com>");
-    vi.stubEnv("ALERTS_EMAIL_FROM", "OpenReply Alerts <alerts@example.com>");
-    expect(getAlertsEmailFrom()).toBe("OpenReply Alerts <alerts@example.com>");
+    vi.stubEnv("EMAIL_FROM", "  Amitec Reply <login@example.com> ");
+    expect(getAlertsEmailFrom()).toBe("Amitec Reply <login@example.com>");
+    vi.stubEnv("ALERTS_EMAIL_FROM", "Amitec Reply Alerts <alerts@example.com>");
+    expect(getAlertsEmailFrom()).toBe("Amitec Reply Alerts <alerts@example.com>");
     vi.stubEnv("ALERTS_EMAIL_FROM", " ");
-    expect(getAlertsEmailFrom()).toBe("OpenReply <login@example.com>");
+    expect(getAlertsEmailFrom()).toBe("Amitec Reply <login@example.com>");
   });
 
   it("is configured only with both a transport and a sender", () => {
@@ -219,11 +219,11 @@ describe("Resend", () => {
 
   it("sends from ALERTS_EMAIL_FROM rather than the login sender", async () => {
     useResend();
-    vi.stubEnv("ALERTS_EMAIL_FROM", "OpenReply Alerts <alerts@example.com>");
+    vi.stubEnv("ALERTS_EMAIL_FROM", "Amitec Reply Alerts <alerts@example.com>");
     const fetchImpl = vi.fn<typeof fetch>(async () => reply({ id: "re_2" }));
     await sendAlertEmail(email, { fetchImpl });
     const init = fetchImpl.mock.calls[0][1] as RequestInit;
-    expect(JSON.parse(init.body as string).from).toBe("OpenReply Alerts <alerts@example.com>");
+    expect(JSON.parse(init.body as string).from).toBe("Amitec Reply Alerts <alerts@example.com>");
   });
 
   it("counts a 2xx without an id as sent", async () => {

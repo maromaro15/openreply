@@ -479,7 +479,7 @@ describe("the email", () => {
 describe("test alerts", () => {
   it("tell Telegram that alerts work, for the brand", () => {
     expect(buildTestTelegramAlert("Bijoux DZ")).toEqual({
-      html: "<b>🧪 تنبيه تجريبي من OpenReply</b>\n<b>البراند:</b> Bijoux DZ\nإذا وصلك هذا، فالتنبيهات تعمل.",
+      html: "<b>🧪 تنبيه تجريبي من Amitec Reply</b>\n<b>البراند:</b> Bijoux DZ\nإذا وصلك هذا، فالتنبيهات تعمل.",
       button: null,
     });
     expect(telegramValue(buildTestTelegramAlert(HOSTILE).html, "البراند")).toBe(HOSTILE_ESCAPED);
@@ -487,15 +487,15 @@ describe("test alerts", () => {
 
   it("say the same by email", () => {
     const { subject, html, text } = buildTestEmailAlert("Bijoux DZ");
-    expect(subject).toBe("🧪 تنبيه تجريبي من OpenReply — Bijoux DZ");
-    expect(text).toBe("🧪 تنبيه تجريبي من OpenReply\nالبراند: Bijoux DZ\nإذا وصلك هذا، فالتنبيهات تعمل.");
+    expect(subject).toBe("🧪 تنبيه تجريبي من Amitec Reply — Bijoux DZ");
+    expect(text).toBe("🧪 تنبيه تجريبي من Amitec Reply\nالبراند: Bijoux DZ\nإذا وصلك هذا، فالتنبيهات تعمل.");
     expect(html).toContain('<html dir="rtl" lang="ar">');
-    expect(html).toContain("🧪 تنبيه تجريبي من OpenReply</h1>");
+    expect(html).toContain("🧪 تنبيه تجريبي من Amitec Reply</h1>");
     expect(html).toContain("<b>البراند:</b> Bijoux DZ</p>");
     expect(html).toContain("إذا وصلك هذا، فالتنبيهات تعمل.</p>");
     expect(html).not.toContain("<a ");
 
     expect(buildTestEmailAlert(HOSTILE).html).toContain(`<b>البراند:</b> ${HOSTILE_ESCAPED}</p>`);
-    expect(buildTestEmailAlert("Bijoux\nDZ").subject).toBe("🧪 تنبيه تجريبي من OpenReply — Bijoux DZ");
+    expect(buildTestEmailAlert("Bijoux\nDZ").subject).toBe("🧪 تنبيه تجريبي من Amitec Reply — Bijoux DZ");
   });
 });

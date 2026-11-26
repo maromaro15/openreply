@@ -65,7 +65,7 @@ const COPY = {
   lastMessage: "آخر رسالة",
   open: "فتح المحادثة",
   attachment: "📎 مرفق",
-  testTitle: "🧪 تنبيه تجريبي من OpenReply",
+  testTitle: "🧪 تنبيه تجريبي من Amitec Reply",
   testNote: "إذا وصلك هذا، فالتنبيهات تعمل.",
 } as const;
 

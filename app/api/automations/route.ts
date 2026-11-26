@@ -19,6 +19,7 @@ import {
   canManageWorkspace,
   getCurrentWorkspaceContext,
 } from "@/lib/workspace-access";
+import { rejectViewer } from "@/lib/agency/http";
 
 // This list is read-your-writes (created/imported campaigns must show up
 // immediately), so never cache it at the route or CDN layer.
@@ -286,6 +287,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const viewOnly = await rejectViewer();
+  if (viewOnly) return viewOnly;
   const context = await getCurrentWorkspaceContext();
   if (!context) {
     return NextResponse.json(
@@ -435,6 +438,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const viewOnly = await rejectViewer();
+  if (viewOnly) return viewOnly;
   const context = await getCurrentWorkspaceContext();
   if (!context) {
     return NextResponse.json(
@@ -566,6 +571,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const viewOnly = await rejectViewer();
+  if (viewOnly) return viewOnly;
   const context = await getCurrentWorkspaceContext();
   if (!context) {
     return NextResponse.json(

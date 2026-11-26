@@ -29,7 +29,7 @@ interface SettingsData {
 }
 
 interface WorkspaceMembersData {
-  currentUserRole: "OWNER" | "ADMIN" | "MEMBER";
+  currentUserRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
   members: Array<{
     id: string;
     role: "OWNER" | "ADMIN" | "MEMBER";
@@ -58,7 +58,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
+  const [inviteRole, setInviteRole] = useState<"ADMIN" | "MEMBER" | "VIEWER">("MEMBER");
   const [memberError, setMemberError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -298,7 +298,7 @@ export default function SettingsPage() {
         {canManageMembers && (
           <form
             onSubmit={inviteMember}
-            className="mt-6 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_140px_auto]"
+            className="mt-6 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_180px_auto]"
           >
             <input
               type="email"
@@ -311,10 +311,11 @@ export default function SettingsPage() {
             <select
               value={inviteRole}
               onChange={(event) =>
-                setInviteRole(event.target.value as "ADMIN" | "MEMBER")
+                setInviteRole(event.target.value as "ADMIN" | "MEMBER" | "VIEWER")
               }
               className="rounded border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
             >
+              <option value="VIEWER">{t("Viewer (view only)")}</option>
               <option value="MEMBER">{t("Member")}</option>
               <option value="ADMIN">{t("Admin")}</option>
             </select>
