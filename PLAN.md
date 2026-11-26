@@ -1138,6 +1138,28 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 
 **التحقق قبل التسليم:** `docker compose config`، ثم بناء الصورتين، ثم تشغيل كامل بدون Caddy للتأكد من الإقلاع والـ migrations والـ health.
 
+**ما نُفّذ في المرحلة 16:**
+
+- **ملفات `deploy/vps/` (الجزء T):**
+  - الخدمات السبع: `app` و`worker` و`facebook-worker` و`cron` و`postgres` و`redis` و`caddy`. وحده Caddy ينشر المنافذ.
+  - التطبيق يشغّل الـ migrations قبل أن يقدّم شيئاً، والعمّال وCaddy ينتظرون أن يصبح سليماً.
+  - Redis بـ appendonly.
+  - صورة العامل فيها ffmpeg (البناء يفشل إن نقصه بروتوكول `cache`)، وتعمل بمستخدم غير root.
+  - `backup.sh` بدوران النسخ، ورفع اختياري، ولا يترك ملفاً ناقصاً.
+  - `README.md` للتثبيت والتحديث والسجلات والاستعادة.
+  - ملفات Docker الحالية لم تُلمس.
+- **`deploy/vps/.env.example` بالعربية والإنجليزية، صُحّح على ما بُني بعده:**
+  - `IMAGE_MATCH_MAX_CANDIDATES` صار 6، لأن 12 خارج المجال 1-10.
+  - التعرّف على صور الزبائن شُغّل في المرحلة 12.
+  - أُضيف `GEMINI_VISION_MODEL`.
+  - وصفا `AGENCY_OWNER_EMAILS` و`DEFAULT_LOCALE` صارا مطابقين للكود.
+- **`.env.example` في الجذر (البند 3):** قسم جديد في آخر الملف فقط (62 سطراً، صفر سطر محذوف)، فيه كل متغيرات الوحدة الجديدة بقيمها الافتراضية من الكود.
+- **التحقق:**
+  - `docker compose config` ناجح، وفيه الخدمات السبع والقيم الإجبارية.
+  - شجرة imports عامل فيسبوك كلها داخل `lib/` و`worker/` و`app/generated/`، وهي بالضبط ما تنسخه صورته.
+  - الـ Dockerfile الحالي فيه Prisma CLI والـ migrations، فيعمل `prisma migrate deploy`.
+  - **لم يُنفَّذ هنا:** بناء الصور وتشغيل الحاويات، لأن هذا السيرفر بلا Docker daemon. أول تشغيل على الـ VPS يقوم بهذا التحقق، والدليل العربي يشرح خطواته.
+
 ### 6.8 نظام الوكالة متعدد الزبائن
 
 **النموذج:** كل براند workspace، بما فيه من صفحات وحملات وقاعدة معرفة وصندوق رسائل وتنبيهات. هذا يعتمد على الجداول الحالية دون أي تغيير.
@@ -1595,6 +1617,7 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 | `GOOGLE_API_KEY` | — | مفتاح Gemini |
 | `GEMINI_CHAT_MODEL` | `gemini-flash-latest` | موديل البوت |
 | `GEMINI_TRANSCRIBE_MODEL` | `gemini-flash-latest` | موديل التفريغ |
+| `GEMINI_VISION_MODEL` | موديل البوت | موديل قراءة صور الزبائن (المرحلة 12) |
 | `GEMINI_TRANSCRIBE_PROMPT` | نصك حرفياً | تعليمة التفريغ |
 | `BOT_DEBOUNCE_MS` | `7000` | انتظار تجميع الرسائل |
 | `BOT_HISTORY_MESSAGES` | `20` | عدد الرسائل في السياق |
@@ -1739,7 +1762,7 @@ npm run build                                          # في المراحل ا�
 | **13** ✅ | إرسال صور الألوان والمقارنة بالـ carousel وزر «نحب هذا» (القسم 6.14) | `carousel` و`postback-parse` و`bot-actions` و`bot-actions-send` و`postback-flow`، وتوسيع `bot-reply` و`knowledge-api` و`env` و`page-connect` و`pages.db`، و8 فحوص حية |
 | **14** ✅ | طرق تعبئة المنتجات وشاشة المراجعة (القسم 6.15) | `xlsx-codec` و`csv-import` و`catalog-import` و`post-drafts` و`conversation-mining` و`telegram-interview` و`learning-loop` و`suggestions-store` و`suggestions-review` و`import-api` و`product-drafts` و`knowledge-sources` و`interview-run` و`learning-job`، و19 فحصاً حياً |
 | **15** ✅ | العربية وRTL: `ar.json`، والتعديلات 6 إلى 11، وكتالوج الوحدات الجديدة | `import-messages` و`fb-i18n` و`npm run build`، و37 فحصاً بالعربية و4 لرسائل الاستيراد ومقارنة LTR بكسل بكسل |
-| **16** | النشر: ملفات `deploy/vps/*`، وقسم `.env.example`، والتحقق بـ `docker compose config` والبناء | تشغيل الحاويات محلياً بدون Caddy |
+| **16** ✅ | النشر: ملفات `deploy/vps/*`، وقسم `.env.example`، والتحقق بـ `docker compose config` والبناء | `docker compose config`، وشجرة imports العامل مقابل ما تنسخه صورته. التشغيل الفعلي للحاويات يتم على الـ VPS، لأنه لا يوجد Docker daemon هنا |
 | **17** | الدليل العربي `docs/ar/facebook-messenger-guide.md`: تجهيز السيرفر، وتطبيق Meta (مع `message_echoes` و`messaging_postbacks`)، واستخراج الـ token، وإعداد الوكالة والفرق، والربط، والتعبئة (الكتالوج، والاستيراد، والمقابلة الصوتية، والمراجعة)، وشخصية البوت ودليل البيع، و**إنشاء بوت Telegram وجلب الـ Chat ID**، وإيقاف الردود الآلية لـ Meta، واختبار كل خاصية، واستكشاف الأخطاء، والتحديث والنسخ الاحتياطي | مراجعة الأوامر |
 | **18** | تشغيل نهائي كامل، ثم مراجعة ذاتية للفرق كاملاً، ثم **Pull Request** إلى `main` في `maromaro15/openreply` | الكل |
 
