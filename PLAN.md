@@ -1600,6 +1600,16 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 | V2 `rtl-classes` | البند 10: تحويل الأصناف الفيزيائية إلى منطقية في 9 ملفات (الشكل في LTR يبقى مطابقاً)، والبند 11: ذكر العربية وRTL في التوثيق | `app/(dashboard)/overview/page.tsx`، `components/campaign-preview.tsx`، `components/follower-chart.tsx`، `app/(dashboard)/campaigns/page.tsx`، `components/demo-notice.tsx`، `components/campaign-builder.tsx`، `app/(dashboard)/inbox/page.tsx`، `app/(dashboard)/integrations/page.tsx`، `app/(dashboard)/logs/page.tsx`، `docs/localization.md` | Sonnet، عالٍ |
 | V3 `import-messages` | رسائل أخطاء الاستيراد بلغة الواجهة: قوالب ثابتة بمتغيرات في `catalog.ts` نفسها، تُترجم على شاشة الاستيراد، والنص الإنجليزي يبقى كما هو | `lib/catalog/import/catalog.ts`، `lib/catalog/import/messages.ts`، `components/facebook/product-import.tsx`، `__tests__/facebook/import-messages.test.ts`، ونصوصه العربية في ملف مؤقت يضعه الرئيسي في `ar.json` | Sonnet، عالٍ |
 
+**جدول التوزيع للمرحلتين 17 و18:**
+
+الدليل لا يلمس أي ملف كود، والمراجعة لا تكتب شيئاً، فيعملان معاً. سطر `README.md` (البند 12) وكل إصلاح تكشفه المراجعة يكتبهما الرئيسي.
+
+| الجزء | المهمة | الملفات المسموح بتعديلها حصرياً | الموديل والجهد |
+| --- | --- | --- | --- |
+| W1 `guide-ar` | الدليل العربي كاملاً (القسم 10، المرحلة 17)، بأسماء الأزرار والشاشات كما تظهر في الواجهة العربية | `docs/ar/facebook-messenger-guide.md` | Opus، عالٍ |
+| R1 `review-security` | مراجعة للقراءة فقط: الـ webhook والتوقيع، وعزل البراندات في كل API، والأسرار، وما يأتي من الزبائن والنماذج | لا شيء (تقرير فقط) | Opus، عالٍ |
+| R2 `review-correctness` | مراجعة للقراءة فقط: البوت والـ jobs والطوابير والتكرار والسباقات، وأن منطق Instagram لم يتغير | لا شيء (تقرير فقط) | Opus، عالٍ |
+
 ---
 
 ## 7. متغيرات البيئة الجديدة
@@ -1763,7 +1773,7 @@ npm run build                                          # في المراحل ا�
 | **14** ✅ | طرق تعبئة المنتجات وشاشة المراجعة (القسم 6.15) | `xlsx-codec` و`csv-import` و`catalog-import` و`post-drafts` و`conversation-mining` و`telegram-interview` و`learning-loop` و`suggestions-store` و`suggestions-review` و`import-api` و`product-drafts` و`knowledge-sources` و`interview-run` و`learning-job`، و19 فحصاً حياً |
 | **15** ✅ | العربية وRTL: `ar.json`، والتعديلات 6 إلى 11، وكتالوج الوحدات الجديدة | `import-messages` و`fb-i18n` و`npm run build`، و37 فحصاً بالعربية و4 لرسائل الاستيراد ومقارنة LTR بكسل بكسل |
 | **16** ✅ | النشر: ملفات `deploy/vps/*`، وقسم `.env.example`، والتحقق بـ `docker compose config` والبناء | `docker compose config`، وشجرة imports العامل مقابل ما تنسخه صورته. التشغيل الفعلي للحاويات يتم على الـ VPS، لأنه لا يوجد Docker daemon هنا |
-| **17** | الدليل العربي `docs/ar/facebook-messenger-guide.md`: تجهيز السيرفر، وتطبيق Meta (مع `message_echoes` و`messaging_postbacks`)، واستخراج الـ token، وإعداد الوكالة والفرق، والربط، والتعبئة (الكتالوج، والاستيراد، والمقابلة الصوتية، والمراجعة)، وشخصية البوت ودليل البيع، و**إنشاء بوت Telegram وجلب الـ Chat ID**، وإيقاف الردود الآلية لـ Meta، واختبار كل خاصية، واستكشاف الأخطاء، والتحديث والنسخ الاحتياطي | مراجعة الأوامر |
+| **17** ✅ | الدليل العربي `docs/ar/facebook-messenger-guide.md`: تجهيز السيرفر، وتطبيق Meta (مع `message_echoes` و`messaging_postbacks`)، واستخراج الـ token، وإعداد الوكالة والفرق، والربط، والتعبئة (الكتالوج، والاستيراد، والمقابلة الصوتية، والمراجعة)، وشخصية البوت ودليل البيع، و**إنشاء بوت Telegram وجلب الـ Chat ID**، وإيقاف الردود الآلية لـ Meta، واختبار كل خاصية، واستكشاف الأخطاء، والتحديث والنسخ الاحتياطي | مراجعة كل قسم مقابل الكود: أسماء الأزرار من `ar.json`، والأوامر من `deploy/vps`، والمسارات والحدود |
 | **18** | تشغيل نهائي كامل، ثم مراجعة ذاتية للفرق كاملاً، ثم **Pull Request** إلى `main` في `maromaro15/openreply` | الكل |
 
 ---
