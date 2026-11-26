@@ -93,10 +93,14 @@ describe("the webhook", () => {
     expect(queue.add.mock.calls[0][1].mid).toMatch(/^pb_[0-9a-f]{32}$/);
   });
 
-  it("skips a click for a Page nobody connected", async () => {
+  it("skips a click for a Page nobody connected, but logs that Meta reached us", async () => {
     db.facebookPage.findMany.mockResolvedValue([]);
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
     await ingestPageWebhook(click({ title: "نحب هذا", payload: LIKE, mid: "m_pb_1" }));
     expect(queue.add).not.toHaveBeenCalled();
+    expect(db.facebookPage.updateMany).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith("[Facebook webhook] Signed delivery for a Page not connected here: 1001");
+    info.mockRestore();
   });
 });
 

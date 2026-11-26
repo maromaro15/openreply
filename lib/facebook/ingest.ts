@@ -57,7 +57,11 @@ export async function ingestPageWebhook(payload: unknown): Promise<IngestResult>
     where: { pageId: { in: parsed.pageIds }, status: { not: "DISCONNECTED" } },
     select: { id: true, pageId: true, workspaceId: true, status: true },
   });
-  if (pages.length === 0) return NOTHING;
+  if (pages.length === 0) {
+    // Logged, not stored: shows that Meta reached us, e.g. the App Dashboard's Test button (sample Page ID).
+    console.info(`[Facebook webhook] Signed delivery for a Page not connected here: ${parsed.pageIds.join(", ")}`);
+    return NOTHING;
+  }
   const byPageId = new Map(pages.map((page) => [page.pageId, page]));
 
   const now = new Date();
