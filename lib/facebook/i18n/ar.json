@@ -872,5 +872,8 @@
   "What the customer said": "واش قال الزبون",
   "Write the reply the way your team would say it. The bot copies the style of the examples, never their facts.": "اكتب الرد كيما يقولو الفريق تاعك. البوت ياخذ طريقة الكلام من الأمثلة، ماشي المعلومات.",
   "Wrong phrase": "العبارة الغالطة",
-  "Brand owner view: you see your conversations, the ones waiting for a person, and your statistics.": "عرض صاحب البراند: تشوف المحادثات تاعك، اللي يستناو واحد من الفريق، والإحصائيات."
+  "Brand owner view: you see your conversations, the ones waiting for a person, and your statistics.": "عرض صاحب البراند: تشوف المحادثات تاعك، اللي يستناو واحد من الفريق، والإحصائيات.",
+  "AI reply is off for this brand: new messages get no reply and are not handed to a person, so no alert is sent.": "الرد الآلي متوقف لهذا البراند: الرسائل الجديدة لا يُرد عليها ولا تُحوَّل لشخص، فلا يصل أي تنبيه.",
+  "AI reply is off on every Page of this brand: new messages get no reply and are not handed to a person, so no alert is sent.": "الرد الآلي متوقف في كل صفحات هذا البراند: الرسائل الجديدة لا يُرد عليها ولا تُحوَّل لشخص، فلا يصل أي تنبيه.",
+  "Turn it on": "شغّله"
 }

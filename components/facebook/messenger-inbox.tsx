@@ -10,6 +10,7 @@ import VoiceFromMessage from "@/components/facebook/voice-from-message";
 import Link from "next/link";
 import type { HandoffCategory } from "@/app/generated/prisma/client";
 import { selectWorkspace } from "@/lib/agency/actions";
+import type { AiReplyOff } from "@/lib/facebook/ai-reply-status";
 import { translateReason, type FbI18n, type FbStaticKey } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 import type {
@@ -376,6 +377,7 @@ export default function MessengerInbox({
   linkForeign,
   viewOnly = false,
   canManage = false,
+  aiReplyOff = null,
 }: {
   initialConversationId: string | null;
   switchToWorkspaceId: string | null;
@@ -384,6 +386,8 @@ export default function MessengerInbox({
   viewOnly?: boolean;
   /** Owners and admins: may add a bot reply's wrong phrase to the brand's dictionary. */
   canManage?: boolean;
+  /** New messages reach no bot (lib/facebook/ai-reply-status): said above the list. */
+  aiReplyOff?: AiReplyOff;
 }) {
   const { locale } = useI18n();
   const fb = useFbI18n();
@@ -665,6 +669,22 @@ export default function MessengerInbox({
       {(linkForeign || switchFailed) && (
         <p role="alert" className="rounded border border-error/30 bg-error/5 px-3 py-2 text-sm text-error">
           {linkForeign ? t("This link is for a brand you are not a member of.") : t("Could not switch brand. Please try again.")}
+        </p>
+      )}
+
+      {aiReplyOff && (
+        <p role="status" className="rounded border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-foreground">
+          {aiReplyOff === "brand"
+            ? t("AI reply is off for this brand: new messages get no reply and are not handed to a person, so no alert is sent.")
+            : t("AI reply is off on every Page of this brand: new messages get no reply and are not handed to a person, so no alert is sent.")}
+          {canManage && (
+            <>
+              {" "}
+              <Link href={aiReplyOff === "brand" ? "/facebook/knowledge" : "/facebook/pages"} className="font-medium underline">
+                {t("Turn it on")}
+              </Link>
+            </>
+          )}
         </p>
       )}
 
