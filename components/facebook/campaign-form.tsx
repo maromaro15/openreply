@@ -243,7 +243,8 @@ export default function CampaignForm({
 
   return (
     <form onSubmit={save} className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-6">
+      {/* min-w-0: the one-line post previews must truncate, not widen the column past the screen. */}
+      <div className="min-w-0 space-y-6">
         <section className="panel space-y-4 rounded p-4 sm:p-6">
           <label className="block space-y-1">
             <span className="text-sm font-semibold text-foreground">{t("Campaign name")}</span>
