@@ -1,6 +1,6 @@
 # Interface languages
 
-OpenReply defaults to English. Choose **English**, **繁體中文**, **Português (Brasil)**, **Русский** or **Español** in the dashboard
+OpenReply defaults to English. Choose **English**, **繁體中文**, **Português (Brasil)**, **Русский**, **Español** or **العربية** in the dashboard
 sidebar, under **Settings → Interface language**, or on the sign-in screen.
 The choice is stored in a browser cookie for one year and applies to the
 dashboard, sign-in screens, workspace invitations, and shared campaign reports.
@@ -17,7 +17,7 @@ interface translation's scope.
 ## Adding or changing copy
 
 - `lib/i18n/zh-TW.json` maps English source copy to Traditional Chinese and
-  `lib/i18n/pt-BR.json` to Brazilian Portuguese, `lib/i18n/ru.json` to Russian, `lib/i18n/es.json` to Spanish. All catalogs must carry exactly
+  `lib/i18n/pt-BR.json` to Brazilian Portuguese, `lib/i18n/ru.json` to Russian, `lib/i18n/es.json` to Spanish, `lib/i18n/ar.json` to Arabic. All catalogs must carry exactly
   the same keys; a missing key fails the typecheck. Use complete sentences with
   named placeholders when word order can vary.
 - Client components use `useI18n()`; server components use `await getI18n()`.
@@ -29,6 +29,29 @@ interface translation's scope.
   not values already entered by the user.
 - Remove unused catalog entries when removing UI copy. The catalog tests check
   that translations retain their interpolation fields and contain plain text.
+
+## Arabic and right-to-left layout
+
+Arabic (`ar`) is a supported interface language and is right-to-left. The
+layout uses Tailwind logical classes, so the same markup renders correctly in
+both directions. New UI must use logical classes instead of physical ones:
+
+- `ms-*` / `me-*` instead of `ml-*` / `mr-*`, and `ps-*` / `pe-*` instead of
+  `pl-*` / `pr-*` (negative values too: `-ml-2` becomes `-ms-2`).
+- `start-*` / `end-*` instead of `left-*` / `right-*`.
+- `text-start` / `text-end` instead of `text-left` / `text-right`.
+- `border-s` / `border-e` instead of `border-l` / `border-r`, and
+  `rounded-s` / `rounded-e` / `rounded-ss` / `rounded-se` / `rounded-es` /
+  `rounded-ee` instead of `rounded-l` / `rounded-r` / `rounded-tl` /
+  `rounded-tr` / `rounded-bl` / `rounded-br`.
+- Add `rtl:space-x-reverse` next to a `space-x-*` that separates items in a
+  row, and `rtl:-translate-x-*` next to a direction-dependent `translate-x-*`.
+- Charts and other number or time-axis displays stay left to right: put
+  `dir="ltr"` on their container.
+
+The optional `DEFAULT_LOCALE` environment variable sets the language a visitor
+gets before choosing one (for example `DEFAULT_LOCALE=ar`). Without it, English
+remains the default.
 
 ## Rendering and persistence
 

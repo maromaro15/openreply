@@ -156,6 +156,33 @@
 | `app/(dashboard)/integrations/page.tsx` | 2 |
 | `app/(dashboard)/logs/page.tsx` | 1 |
 
+**ما نُفّذ في المرحلة 15 (البنود 6 إلى 11):**
+
+- **البنود 6 إلى 9 كما وافقتَ عليها، دون أي سطر منطق آخر:**
+  - `"ar"` في `Locale` و`isLocale` و`catalogs`.
+  - `DEFAULT_LOCALE` في سطر واحد من `lib/i18n/server.ts`: مثلاً `DEFAULT_LOCALE=ar` يجعل العربية لغة الزائر قبل أن يختار.
+  - `dir="rtl"` من `provider.tsx` على الصفحة كلها.
+  - خيار «العربية» في مبدّل اللغة.
+- **`lib/i18n/ar.json`** (470 نصاً، نفس مفاتيح الكتالوجات الأخرى). ترجمه الجزء V1 في ملف مؤقت، وراجعه الرئيسي سطراً بسطر، ووحّد المصطلحات مع شاشات Facebook:
+  - «مسؤول» للـ Admin؛
+  - علامات «» حول البحث؛
+  - سهم الرجوع → في RTL.
+- **البند 10:**
+  - الملفات التسعة بأصناف CSS فقط (الجزء V2، تحقق آلي أن كل سطر تغيّر يعود إلى أصله بالتحويل العكسي).
+  - الشريط الجانبي (الرئيسي): يقف على اليمين، ودرج الهاتف يخرج من اليمين ويعود إليها.
+  - المخطط يبقى `dir="ltr"`.
+  - **ما كشفته مقارنة الصور قبل وبعد (LTR، كل شاشة، بعرضين):** `text-start` على صف جدول يجعل عناوين الأعمدة في الوسط، لأن start هي القيمة الافتراضية فلا يرثها `th`. فصارت الصفوف الثلاثة `text-left rtl:text-right`. بعدها كل الشاشات مطابقة بكسل بكسل، إلا ما يتغير مع الوقت (أيام المخطط، الساعة)، وقد ثبت ذلك بمقارنة صورتين من نفس النسخة.
+- **البند 11:** `docs/localization.md` (العربية في قائمة اللغات، والأصناف المنطقية، و`DEFAULT_LOCALE`).
+- **رسائل أخطاء الاستيراد بالعربية** (الجزء V3، المتبقي من المرحلة 14):
+  - كل رسالة تُبنى من قالب ثابت بمتغيرات، والشاشة تترجمها، والإنجليزية لم تتغير حرفاً.
+  - 801 نص عربي الآن في كتالوج الوحدات الجديدة.
+- **الأرقام:** `ar` في Chromium وNode يكتب الأرقام الغربية (latn)، والتواريخ «25 نوفمبر، 11:44 م».
+- **تحقق حي:**
+  - 37 فحصاً: 17 شاشة × عرضان بالعربية، وكلها `rtl` بلا تمرير أفقي، إضافة إلى الشريط والدرج.
+  - 4 فحوص لرسائل الاستيراد بالعربية.
+  - مقارنة LTR قبل وبعد.
+- **خارج النطاق:** رسالة «Instagram account not connected» في «نظرة عامة» يرسلها خادم Instagram الأصلي بالإنجليزية في كل اللغات، ولم تُمسّ.
+
 ### 3.2 بنود نظام الوكالة (13 إلى 15): وافقتَ عليها ونُفّذت في المرحلة 3
 
 ظهرت مع نظام الوكالة. البند 15 نُفّذ بقاعدة أدق مما كُتب أولاً: يكفي لفتح الدخول **دعوة سارية، أو عضوية بدور ADMIN أو MEMBER**. ملكية workspace وحدها لا تكفي، لأن كل حساب سجّل يوماً يملك workspace، وإلا لعاد كل حساب قديم إلى الدخول رغم `ALLOWED_EMAILS`.
@@ -1549,6 +1576,7 @@ model TelegramChatSeen { workspaceId String; chatId String; title String?; type 
 | --- | --- | --- | --- |
 | V1 `ar-catalog` | ترجمة 470 نصاً من نصوص الواجهة الأصلية إلى العربية، بنفس المصطلحات المستعملة في شاشات Facebook | ملف مؤقت في مجلد العمل الخاص (scratchpad)، لا شيء في المستودع | Sonnet، متوسط |
 | V2 `rtl-classes` | البند 10: تحويل الأصناف الفيزيائية إلى منطقية في 9 ملفات (الشكل في LTR يبقى مطابقاً)، والبند 11: ذكر العربية وRTL في التوثيق | `app/(dashboard)/overview/page.tsx`، `components/campaign-preview.tsx`، `components/follower-chart.tsx`، `app/(dashboard)/campaigns/page.tsx`، `components/demo-notice.tsx`، `components/campaign-builder.tsx`، `app/(dashboard)/inbox/page.tsx`، `app/(dashboard)/integrations/page.tsx`، `app/(dashboard)/logs/page.tsx`، `docs/localization.md` | Sonnet، عالٍ |
+| V3 `import-messages` | رسائل أخطاء الاستيراد بلغة الواجهة: قوالب ثابتة بمتغيرات في `catalog.ts` نفسها، تُترجم على شاشة الاستيراد، والنص الإنجليزي يبقى كما هو | `lib/catalog/import/catalog.ts`، `lib/catalog/import/messages.ts`، `components/facebook/product-import.tsx`، `__tests__/facebook/import-messages.test.ts`، ونصوصه العربية في ملف مؤقت يضعه الرئيسي في `ar.json` | Sonnet، عالٍ |
 
 ---
 
@@ -1710,7 +1738,7 @@ npm run build                                          # في المراحل ا�
 | **12** ✅ | التعرّف على المنتج من صورة الزبون (القسم 6.13) | `image-download` و`image-codes` و`image-recognition` و`image-job`، وتوسيع `message-worker` و`bot-reply`، و6 فحوص حية |
 | **13** ✅ | إرسال صور الألوان والمقارنة بالـ carousel وزر «نحب هذا» (القسم 6.14) | `carousel` و`postback-parse` و`bot-actions` و`bot-actions-send` و`postback-flow`، وتوسيع `bot-reply` و`knowledge-api` و`env` و`page-connect` و`pages.db`، و8 فحوص حية |
 | **14** ✅ | طرق تعبئة المنتجات وشاشة المراجعة (القسم 6.15) | `xlsx-codec` و`csv-import` و`catalog-import` و`post-drafts` و`conversation-mining` و`telegram-interview` و`learning-loop` و`suggestions-store` و`suggestions-review` و`import-api` و`product-drafts` و`knowledge-sources` و`interview-run` و`learning-job`، و19 فحصاً حياً |
-| **15** | العربية وRTL: `ar.json`، والتعديلات 6 إلى 11، وكتالوج الوحدات الجديدة | `i18n-ar` و`npm run build` |
+| **15** ✅ | العربية وRTL: `ar.json`، والتعديلات 6 إلى 11، وكتالوج الوحدات الجديدة | `import-messages` و`fb-i18n` و`npm run build`، و37 فحصاً بالعربية و4 لرسائل الاستيراد ومقارنة LTR بكسل بكسل |
 | **16** | النشر: ملفات `deploy/vps/*`، وقسم `.env.example`، والتحقق بـ `docker compose config` والبناء | تشغيل الحاويات محلياً بدون Caddy |
 | **17** | الدليل العربي `docs/ar/facebook-messenger-guide.md`: تجهيز السيرفر، وتطبيق Meta (مع `message_echoes` و`messaging_postbacks`)، واستخراج الـ token، وإعداد الوكالة والفرق، والربط، والتعبئة (الكتالوج، والاستيراد، والمقابلة الصوتية، والمراجعة)، وشخصية البوت ودليل البيع، و**إنشاء بوت Telegram وجلب الـ Chat ID**، وإيقاف الردود الآلية لـ Meta، واختبار كل خاصية، واستكشاف الأخطاء، والتحديث والنسخ الاحتياطي | مراجعة الأوامر |
 | **18** | تشغيل نهائي كامل، ثم مراجعة ذاتية للفرق كاملاً، ثم **Pull Request** إلى `main` في `maromaro15/openreply` | الكل |

@@ -71,10 +71,10 @@ export default function Sidebar({
 
       <aside
         className={`
-          fixed top-0 left-0 z-50 h-dvh w-64 max-w-[85vw] shrink-0 bg-surface border-r border-border flex flex-col
+          fixed top-0 start-0 z-50 h-dvh w-64 max-w-[85vw] shrink-0 bg-surface border-e border-border flex flex-col
           transition-transform duration-200 ease-out
-          lg:h-full lg:translate-x-0 lg:static lg:z-auto
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:h-full lg:translate-x-0 lg:rtl:translate-x-0 lg:static lg:z-auto
+          ${isOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"}
         `}
       >
         {/* Same reason as the top bar: the drawer is full height, so the

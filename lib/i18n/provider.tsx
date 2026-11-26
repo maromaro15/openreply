@@ -14,18 +14,23 @@ export function I18nProvider({
   children: React.ReactNode;
 }) {
   const value = useMemo(() => createI18n(locale), [locale]);
+  // Arabic reads right to left; every other interface language left to right.
+  const dir = locale === "ar" ? "rtl" : "ltr";
 
   useEffect(() => {
     const previous = document.documentElement.lang;
+    const previousDir = document.documentElement.dir;
     document.documentElement.lang = locale;
+    document.documentElement.dir = dir;
     return () => {
       document.documentElement.lang = previous;
+      document.documentElement.dir = previousDir;
     };
-  }, [locale]);
+  }, [locale, dir]);
 
   return (
     <I18nContext.Provider value={value}>
-      <div lang={locale} className="contents">
+      <div lang={locale} dir={dir} className="contents">
         {children}
       </div>
     </I18nContext.Provider>

@@ -22,6 +22,9 @@ function LanguageOptions() {
       <option value="es" lang="es">
         Español
       </option>
+      <option value="ar" lang="ar">
+        العربية
+      </option>
     </>
   );
 }

@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { translateReason, type FbStaticKey } from "@/lib/facebook/i18n";
+import { translateImportLabel, translateImportMessage } from "@/lib/catalog/import/messages";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 
 type RowAction = "create" | "update" | "error";
@@ -73,9 +74,13 @@ const FILTERS: { value: Filter; label: FbStaticKey }[] = [
   { value: "error", label: "Refused" },
 ];
 
-/** The refusal reasons of matchImageFiles that are fixed sentences; the others stay as written. */
-function pictureReason(t: ReturnType<typeof useFbI18n>["t"], reason: string): string {
-  return translateReason(t, reason);
+/**
+ * A message of the codec or of the apply step (a row's error, a note about the
+ * file, a picture's reason, a failed row): built from a template of
+ * lib/catalog/import/messages, else a fixed sentence of the catalog, else shown as written.
+ */
+function importText(t: ReturnType<typeof useFbI18n>["t"], message: string): string {
+  return translateReason(t, translateImportMessage(t, message));
 }
 
 function Stat({ value, label, tone }: { value: number; label: string; tone?: string }) {
@@ -403,10 +408,10 @@ export default function ProductImport() {
               <ul className="mt-2 space-y-1 text-xs text-muted" dir="auto">
                 {preview.problems.map((problem, index) => (
                   <li key={index} className="break-words">
-                    {problem.sheet && <span className="font-medium text-foreground">{problem.sheet}</span>}
+                    {problem.sheet && <span className="font-medium text-foreground">{translateImportLabel(t, problem.sheet)}</span>}
                     {problem.row > 0 && <span> {t("row {row}", { row: problem.row })}</span>}
                     {(problem.sheet || problem.row > 0) && ": "}
-                    {translateReason(t, problem.message)}
+                    {importText(t, problem.message)}
                   </li>
                 ))}
               </ul>
@@ -465,7 +470,7 @@ export default function ProductImport() {
                       <ul className="ms-10 list-disc space-y-0.5 ps-4 text-xs text-error" dir="auto">
                         {row.errors.map((message, index) => (
                           <li key={index} className="break-words">
-                            {translateReason(t, message)}
+                            {importText(t, message)}
                           </li>
                         ))}
                       </ul>
@@ -503,7 +508,7 @@ export default function ProductImport() {
                           {item.fileName}
                         </span>
                         {": "}
-                        {pictureReason(t, item.reason)}
+                        {importText(t, item.reason)}
                       </li>
                     ))}
                   </ul>
@@ -571,7 +576,7 @@ export default function ProductImport() {
               {outcome.failed.map((item) => (
                 <li key={`${item.sheet}:${item.row}`} className="break-words">
                   {t("row {row}", { row: item.row })}
-                  {item.code ? ` (${item.code})` : ""}: {translateReason(t, item.message)}
+                  {item.code ? ` (${item.code})` : ""}: {importText(t, item.message)}
                 </li>
               ))}
             </ul>

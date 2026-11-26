@@ -86,7 +86,7 @@ export function DemoNotice({ variant }: { variant: "banner" | "panel" }) {
           type="button"
           onClick={dismiss}
           aria-label={t("Dismiss demo notice")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-zinc-500 transition hover:text-zinc-900 sm:right-4"
+          className="absolute end-2 top-1/2 -translate-y-1/2 p-2 text-zinc-500 transition hover:text-zinc-900 sm:end-4"
         >
           <DismissIcon />
         </button>
@@ -95,7 +95,7 @@ export function DemoNotice({ variant }: { variant: "banner" | "panel" }) {
   }
 
   return (
-    <div className="relative mb-5 rounded border border-warning/30 bg-warning/10 px-4 py-3 pr-10">
+    <div className="relative mb-5 rounded border border-warning/30 bg-warning/10 px-4 py-3 pe-10">
       <p className="text-sm leading-6 text-foreground">
         <span className="font-semibold">{host} {t("is a demo instance.")}</span>{" "}
         {t("Signing in here will not send DMs for your Instagram account. OpenReply is self-hosted, so it only works on a deployment you run yourself, with your own Meta app and your own domain.")}{" "}
@@ -113,7 +113,7 @@ export function DemoNotice({ variant }: { variant: "banner" | "panel" }) {
         type="button"
         onClick={dismiss}
         aria-label={t("Dismiss demo notice")}
-        className="absolute right-1 top-1 p-2 text-muted transition hover:text-foreground"
+        className="absolute end-1 top-1 p-2 text-muted transition hover:text-foreground"
       >
         <DismissIcon />
       </button>

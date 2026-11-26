@@ -13,6 +13,7 @@
 import { cleanAttributeValues, type AttributeValue } from "../attributes";
 import { codeKeyOf, MAX_CODE_LENGTH, normalizeCode } from "../codes";
 import { MAX_PRODUCTS, productInputSchema, type ProductInput } from "../products";
+import { FIELD_LABELS, fillMessage, IMPORT_SHEET_NAMES, IMPORT_TEMPLATES as MESSAGES } from "./messages";
 
 /** A sheet as the codec reads or writes it: row 0 holds the headers. */
 export interface Sheet {
@@ -28,7 +29,7 @@ export interface ImportAttribute {
   options: string[];
 }
 
-export const IMPORT_SHEETS = { products: "Products", colours: "Colours", help: "Read me" } as const;
+export const IMPORT_SHEETS = IMPORT_SHEET_NAMES;
 
 /** A card as the template exports it (round trip). */
 export interface TemplateProduct {
@@ -189,57 +190,57 @@ const PRODUCT_FIELDS: FieldDef<ProductField>[] = [
   {
     field: "code",
     header: "الكود / Code",
-    label: "Code",
+    label: FIELD_LABELS.code,
     names: ["code", "كود", "الكود", "رمز", "الرمز", "رقم", "الرقم", "référence", "ref", "réf", "sku", "product code", "code produit"],
   },
   {
     field: "name",
     header: "الاسم / Nom *",
-    label: "Name",
+    label: FIELD_LABELS.name,
     names: ["name", "nom", "اسم", "الاسم", "اسم المنتج", "product", "product name", "produit", "nom du produit", "désignation", "المنتج"],
   },
-  { field: "price", header: "السعر / Prix", label: "Price", names: ["price", "prix", "سعر", "السعر", "tarif", "الثمن", "ثمن"] },
+  { field: "price", header: "السعر / Prix", label: FIELD_LABELS.price, names: ["price", "prix", "سعر", "السعر", "tarif", "الثمن", "ثمن"] },
   {
     field: "available",
     header: "متوفر / Disponible",
-    label: "Available",
+    label: FIELD_LABELS.available,
     names: ["available", "availability", "in stock", "stock", "disponible", "disponibilité", "en stock", "متوفر", "التوفر", "متوفره"],
   },
   {
     field: "landingUrl",
     header: "رابط صفحة الهبوط / Lien de la page",
-    label: "Landing page",
+    label: FIELD_LABELS.landingUrl,
     names: ["landing url", "landing page", "url", "link", "lien", "page", "lien de la page", "رابط", "الرابط", "صفحة الهبوط", "رابط الصفحة"],
   },
-  { field: "description", header: "الوصف / Description", label: "Description", names: ["description", "وصف", "الوصف"] },
+  { field: "description", header: "الوصف / Description", label: FIELD_LABELS.description, names: ["description", "وصف", "الوصف"] },
   {
     field: "howToUse",
     header: "طريقة الاستعمال / Utilisation",
-    label: "How to use",
+    label: FIELD_LABELS.howToUse,
     names: ["how to use", "usage", "use", "utilisation", "mode d'emploi", "installation", "pose", "طريقة الاستعمال", "طريقة التركيب", "الاستعمال", "التركيب"],
   },
   {
     field: "strengths",
     header: "نقاط القوة / Points forts",
-    label: "Strengths",
+    label: FIELD_LABELS.strengths,
     names: ["strengths", "points forts", "avantages", "atouts", "نقاط القوة", "المميزات", "مميزات"],
   },
   {
     field: "comparisons",
     header: "المقارنة / Comparaison",
-    label: "Comparisons",
+    label: FIELD_LABELS.comparisons,
     names: ["comparisons", "comparison", "comparaison", "comparaisons", "مقارنة", "المقارنة"],
   },
   {
     field: "suitableFor",
     header: "لمن يصلح / Pour qui",
-    label: "Suitable for",
+    label: FIELD_LABELS.suitableFor,
     names: ["suitable for", "for who", "pour qui", "convient à", "usages", "لمن يصلح", "الاستعمالات", "يصلح ل"],
   },
   {
     field: "objections",
     header: "الأسئلة والتخوفات / Questions et objections",
-    label: "Objections",
+    label: FIELD_LABELS.objections,
     names: ["objections", "questions", "faq", "questions et objections", "الأسئلة", "التخوفات", "الأسئلة والتخوفات", "أسئلة"],
   },
 ];
@@ -248,23 +249,23 @@ const COLOUR_FIELDS: FieldDef<ColourField>[] = [
   {
     field: "productCode",
     header: "كود المنتج / Code produit *",
-    label: "Product code",
+    label: FIELD_LABELS.productCode,
     names: ["product code", "product", "code produit", "produit", "réf produit", "كود المنتج", "المنتج", "رمز المنتج"],
   },
   {
     field: "code",
     header: "كود اللون / Code couleur *",
-    label: "Colour code",
+    label: FIELD_LABELS.colourCode,
     names: ["colour code", "color code", "code", "code couleur", "code de la couleur", "code type", "كود اللون", "رقم اللون", "كود", "رقم"],
   },
   {
     field: "name",
     header: "اسم اللون / Nom de la couleur",
-    label: "Colour name",
+    label: FIELD_LABELS.colourName,
     names: ["colour name", "color name", "name", "colour", "color", "nom", "nom de la couleur", "couleur", "اسم اللون", "الاسم", "اللون"],
   },
-  { field: "available", header: "متوفر / Disponible", label: "Available", names: PRODUCT_FIELDS[3].names },
-  { field: "price", header: "السعر / Prix", label: "Price", names: PRODUCT_FIELDS[2].names },
+  { field: "available", header: "متوفر / Disponible", label: FIELD_LABELS.available, names: PRODUCT_FIELDS[3].names },
+  { field: "price", header: "السعر / Prix", label: FIELD_LABELS.price, names: PRODUCT_FIELDS[2].names },
 ];
 
 /** The label with its unit; a label used twice gets its key, so each column stays its own. */
@@ -365,7 +366,7 @@ function readTable<F extends string>(
   for (let index = headerIndex + 1; index < rows.length; index++) {
     if (isEmptyRow(rows[index])) continue;
     if (data.length >= maxRows) {
-      problems.push({ sheet: sheet.name, row: index + 1, message: `Only the first ${maxRows} rows are read.` });
+      problems.push({ sheet: sheet.name, row: index + 1, message: fillMessage(MESSAGES.rowLimit, { max: maxRows }) });
       break;
     }
     data.push({ row: index + 1, cells: rows[index] });
@@ -379,7 +380,7 @@ function readTable<F extends string>(
     const header = shown(raw);
     if (!header) {
       if (data.some(({ cells }) => (cells[index] ?? "").trim() !== "")) {
-        problems.push({ sheet: sheet.name, row: headerRow, message: `Column ${columnLetter(index)} has no header; it was not read.` });
+        problems.push({ sheet: sheet.name, row: headerRow, message: fillMessage(MESSAGES.noHeader, { letter: columnLetter(index) }) });
       }
       return;
     }
@@ -387,7 +388,7 @@ function readTable<F extends string>(
       .map((candidate) => lookup.get(candidate))
       .find((found) => found !== undefined);
     if (!target) {
-      problems.push({ sheet: sheet.name, row: headerRow, message: `Unknown column "${header}"; it was not read.` });
+      problems.push({ sheet: sheet.name, row: headerRow, message: fillMessage(MESSAGES.unknownColumn, { header }) });
       return;
     }
     const id = target.kind === "field" ? `field:${target.def.field}` : `attribute:${target.attribute.key}`;
@@ -396,7 +397,7 @@ function readTable<F extends string>(
       problems.push({
         sheet: sheet.name,
         row: headerRow,
-        message: `The column "${header}" repeats "${first}"; only the first one is read.`,
+        message: fillMessage(MESSAGES.repeatedColumn, { header, first }),
       });
       return;
     }
@@ -464,7 +465,7 @@ function readObjections(value: string, column: string, errors: string[]): { ques
   lines(value).forEach((line, index) => {
     const match = /^(.*?)\s*(?:=>|⇒|→)\s*(.*)$/.exec(line);
     if (!match) {
-      errors.push(`${column} (line ${index + 1}): write it as "question => answer".`);
+      errors.push(fillMessage(MESSAGES.objectionFormat, { column, line: index + 1 }));
       return;
     }
     objections.push({ question: match[1].trim(), answer: match[2].trim() });
@@ -506,13 +507,15 @@ function attributeValue(attribute: ImportAttribute, raw: string): unknown {
 }
 
 /** zod's own messages are long; the schema's custom ones are kept. */
-function issueText(issue: { code: string; message: string; maximum?: unknown; origin?: unknown }, items: string): string {
+function issueText(issue: { code: string; message: string; maximum?: unknown; origin?: unknown }, items: "colours" | "lines"): string {
   if (!/^(Too (big|small)|Invalid)/.test(issue.message)) return issue.message;
   if (issue.code === "too_big") {
-    return issue.origin === "array" ? `at most ${String(issue.maximum)} ${items}.` : `at most ${String(issue.maximum)} characters.`;
+    const max = String(issue.maximum);
+    if (issue.origin !== "array") return fillMessage(MESSAGES.tooLong, { max });
+    return items === "colours" ? fillMessage(MESSAGES.tooManyColours, { max }) : fillMessage(MESSAGES.tooManyLines, { max });
   }
-  if (issue.code === "too_small") return "can't be empty.";
-  return "isn't valid.";
+  if (issue.code === "too_small") return MESSAGES.empty;
+  return MESSAGES.invalid;
 }
 
 /** The codec's sheets, named as shown, with the Products sheet (else the first other one) and the Colours sheet found. */
@@ -533,22 +536,22 @@ function parseSheets(sheets: unknown, attributes: ImportAttribute[], existing: M
   const { list, kinds, productsIndex, coloursIndex } = locateSheets(sheets);
   list.forEach((sheet, index) => {
     if (index !== productsIndex && index !== coloursIndex && kinds[index] !== "help") {
-      problems.push({ sheet: sheet.name, row: 0, message: `The sheet "${sheet.name}" was not read.` });
+      problems.push({ sheet: sheet.name, row: 0, message: fillMessage(MESSAGES.sheetNotRead, { sheet: sheet.name }) });
     }
   });
   if (productsIndex < 0) {
-    problems.push({ sheet: "", row: 0, message: `No "${IMPORT_SHEETS.products}" sheet in the file.` });
+    problems.push({ sheet: "", row: 0, message: fillMessage(MESSAGES.noSheet, { sheet: IMPORT_SHEETS.products }) });
     return { rows, problems };
   }
 
   const productSheet = list[productsIndex];
   const products = readTable(productSheet, PRODUCT_FIELDS, template, MAX_PRODUCTS, problems);
   if (!products || products.rows.length === 0) {
-    problems.push({ sheet: productSheet.name, row: 0, message: "No products in the sheet." });
+    problems.push({ sheet: productSheet.name, row: 0, message: MESSAGES.noProducts });
     return { rows, problems };
   }
   if (!products.columns.some((col) => col.target.kind === "field" && col.target.def.field === "name")) {
-    problems.push({ sheet: productSheet.name, row: 0, message: `No column for the name ("${PRODUCT_FIELDS[1].header}").` });
+    problems.push({ sheet: productSheet.name, row: 0, message: fillMessage(MESSAGES.noNameColumn, { header: PRODUCT_FIELDS[1].header }) });
   }
   const column = (field: ProductField) => columnName(products, PRODUCT_FIELDS, field);
 
@@ -572,7 +575,7 @@ function parseSheets(sheets: unknown, attributes: ImportAttribute[], existing: M
       const productCode = collapse(values.get("productCode") ?? "");
       const key = codeKeyOf(productCode);
       if (!key) {
-        problems.push({ sheet: colours.sheet, row, message: `${colourColumn("productCode")}: give the product's code.` });
+        problems.push({ sheet: colours.sheet, row, message: fillMessage(MESSAGES.giveProductCode, { column: colourColumn("productCode") }) });
         continue;
       }
       const product = firstByKey.get(key);
@@ -580,7 +583,7 @@ function parseSheets(sheets: unknown, attributes: ImportAttribute[], existing: M
         problems.push({
           sheet: colours.sheet,
           row,
-          message: `No product with the code ${shown(productCode)} in the ${productSheet.name} sheet.`,
+          message: fillMessage(MESSAGES.noProductWithCode, { code: shown(productCode), sheet: productSheet.name }),
         });
         continue;
       }
@@ -588,7 +591,7 @@ function parseSheets(sheets: unknown, attributes: ImportAttribute[], existing: M
       const availableRaw = values.get("available") ?? "";
       const available = yesNo(availableRaw);
       if (available === undefined) {
-        errors.push(`${colourColumn("available")}: answer yes or no (not "${shown(availableRaw, 20)}").`);
+        errors.push(fillMessage(MESSAGES.answerYesNo, { column: colourColumn("available"), value: shown(availableRaw, 20) }));
       }
       product.colours.push({
         row,
@@ -615,11 +618,13 @@ function parseSheets(sheets: unknown, attributes: ImportAttribute[], existing: M
     const name = collapse(get("name"));
 
     const first = product.codeKey ? firstByKey.get(product.codeKey) : undefined;
-    if (first && first !== product) errors.push(`${column("code")}: ${shown(code)} is already on row ${first.row}.`);
+    if (first && first !== product) errors.push(fillMessage(MESSAGES.codeRepeated, { column: column("code"), code: shown(code), row: first.row }));
 
     const availableRaw = get("available");
     const available = yesNo(availableRaw);
-    if (available === undefined) errors.push(`${column("available")}: answer yes or no (not "${shown(availableRaw, 20)}").`);
+    if (available === undefined) {
+      errors.push(fillMessage(MESSAGES.answerYesNo, { column: column("available"), value: shown(availableRaw, 20) }));
+    }
 
     const objections = readObjections(get("objections"), column("objections"), errors);
 
@@ -633,7 +638,7 @@ function parseSheets(sheets: unknown, attributes: ImportAttribute[], existing: M
     errors.push(...cleaned.errors.map((error) => error.message));
 
     for (const colour of product.colours) {
-      errors.push(...colour.errors.map((error) => `${colourSheetName} row ${colour.row}: ${error}`));
+      errors.push(...colour.errors.map((error) => fillMessage(MESSAGES.colourRowIssue, { sheet: colourSheetName, row: colour.row, error })));
     }
 
     const parsed = productInputSchema.safeParse({
@@ -671,23 +676,34 @@ function parseSheets(sheets: unknown, attributes: ImportAttribute[], existing: M
         const [head, index, sub] = issue.path;
         if (head === "variants") {
           const colour = typeof index === "number" ? product.colours[index] : undefined;
-          const text = issueText(issue, "colours per product");
-          if (!colour) errors.push(`${colourSheetName}: ${text}`);
+          const text = issueText(issue, "colours");
+          if (!colour) errors.push(fillMessage(MESSAGES.fieldIssue, { column: colourSheetName, error: text }));
           else {
             const field: ColourField = sub === "name" || sub === "price" || sub === "available" ? sub : "code";
-            errors.push(`${colourSheetName} row ${colour.row}: ${colourColumn(field)}: ${text}`);
+            errors.push(
+              fillMessage(MESSAGES.colourRowIssue, {
+                sheet: colourSheetName,
+                row: colour.row,
+                error: fillMessage(MESSAGES.fieldIssue, { column: colourColumn(field), error: text }),
+              })
+            );
           }
         } else if ((head === "strengths" || head === "objections") && typeof index === "number") {
-          errors.push(`${column(head)} (line ${index + 1}): ${issueText(issue, "lines")}`);
+          errors.push(fillMessage(MESSAGES.lineIssue, { column: column(head), line: index + 1, error: issueText(issue, "lines") }));
         } else {
           const field = PRODUCT_FIELDS.find((def) => def.field === head)?.field;
-          errors.push(`${field ? column(field) : String(head ?? "Card")}: ${issueText(issue, "lines")}`);
+          errors.push(
+            fillMessage(MESSAGES.fieldIssue, {
+              column: field ? column(field) : String(head ?? FIELD_LABELS.card),
+              error: issueText(issue, "lines"),
+            })
+          );
         }
       }
     }
 
     const unique = [...new Set(errors)];
-    const shownErrors = unique.length > MAX_ROW_ERRORS ? [...unique.slice(0, MAX_ROW_ERRORS - 1), `And ${unique.length - MAX_ROW_ERRORS + 1} more.`] : unique;
+    const shownErrors = unique.length > MAX_ROW_ERRORS ? [...unique.slice(0, MAX_ROW_ERRORS - 1), fillMessage(MESSAGES.more, { count: unique.length - MAX_ROW_ERRORS + 1 })] : unique;
     const ok = parsed.success && unique.length === 0;
     rows.push({
       sheet: products.sheet,
@@ -716,7 +732,7 @@ export function parseImport(
   try {
     return parseSheets(sheets, attributes, existing);
   } catch {
-    return { rows: [], problems: [{ sheet: "", row: 0, message: "The file could not be read." }] };
+    return { rows: [], problems: [{ sheet: "", row: 0, message: MESSAGES.fileUnreadable }] };
   }
 }
 
@@ -916,7 +932,7 @@ export function matchImageFiles(
   names.forEach((raw, index) => {
     const fileName = cut(textOf(raw).replace(/[\p{Cc}]/gu, ""), MAX_FILE_NAME);
     if (index >= MAX_FILES) {
-      unmatched.push({ fileName, reason: `too many files (${MAX_FILES} at most)` });
+      unmatched.push({ fileName, reason: fillMessage(MESSAGES.tooManyFiles, { max: MAX_FILES }) });
       return;
     }
     const base = fileName.split(/[\\/]/).pop() ?? "";
@@ -924,13 +940,13 @@ export function matchImageFiles(
     const extension = dot > 0 ? base.slice(dot + 1).toLowerCase() : "";
     // ".DS_Store", and the "._WP-12.jpg" copies macOS leaves in zips and folders.
     if (base.startsWith(".") || !IMAGE_EXTENSIONS.has(extension)) {
-      unmatched.push({ fileName, reason: "not a picture (jpg, jpeg, png or webp)" });
+      unmatched.push({ fileName, reason: MESSAGES.notPicture });
       return;
     }
     const stem = base.slice(0, dot).trim();
     const key = normalizeCode(stem);
     if (!key) {
-      unmatched.push({ fileName, reason: "no code in the name" });
+      unmatched.push({ fileName, reason: MESSAGES.noCodeInName });
       return;
     }
 
@@ -953,21 +969,21 @@ export function matchImageFiles(
 
     const found = [...candidates.values()];
     if (found.length === 0) {
-      unmatched.push({ fileName, reason: "no product or colour has this code" });
+      unmatched.push({ fileName, reason: MESSAGES.codeMatchesNothing });
       return;
     }
     if (found.length > 1) {
       const meanings = found
         .slice(0, 3)
         .map(({ owner, variantCode }) => shown(variantCode ? `${owner.code} ${variantCode}` : owner.code, 40));
-      unmatched.push({ fileName, reason: `ambiguous: could be ${meanings.join(", ")}` });
+      unmatched.push({ fileName, reason: fillMessage(MESSAGES.ambiguous, { meanings: meanings.join(", ") }) });
       return;
     }
     const [{ owner, variantCode }] = found;
     const target = `${normalizeCode(owner.code)}|${variantCode === null ? "" : normalizeCode(variantCode)}`;
     const earlier = used.get(target);
     if (earlier !== undefined) {
-      unmatched.push({ fileName, reason: `duplicate: ${shown(earlier, 80)} is already this picture` });
+      unmatched.push({ fileName, reason: fillMessage(MESSAGES.duplicate, { earlier: shown(earlier, 80) }) });
       return;
     }
     used.set(target, fileName);

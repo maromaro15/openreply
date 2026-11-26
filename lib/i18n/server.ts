@@ -4,5 +4,5 @@ import { createI18n, LOCALE_COOKIE, resolveLocale } from "./index";
 
 export const getI18n = cache(async () => {
   const cookieStore = await cookies();
-  return createI18n(resolveLocale(cookieStore.get(LOCALE_COOKIE)?.value));
+  return createI18n(resolveLocale(cookieStore.get(LOCALE_COOKIE)?.value ?? process.env.DEFAULT_LOCALE));
 });
