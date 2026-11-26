@@ -10,6 +10,7 @@ import { mergeOrder, orderSummary, parseOrderDraft } from "@/lib/bot/order";
 import { goalCollectsOrder } from "@/lib/bot/persona";
 import { isOrderReady } from "@/lib/bot/persona-store";
 import { loadCatalogForBot } from "@/lib/catalog/bot";
+import { loadVoiceForBot } from "@/lib/voice/store";
 import { BOT_TEST_LIMIT_PER_HOUR, rateLimitedResponse, takeWorkspaceQuota } from "@/lib/limits/rate-limit";
 import { LIKE_BUTTON, loadActionProducts, publicBaseUrl } from "@/lib/facebook/bot-actions-send";
 import {
@@ -51,10 +52,15 @@ export async function POST(request: NextRequest) {
     return rateLimitedResponse("Too many bot tests this hour. Try again later.", quota.retryAfter);
   }
 
-  const [settings, knowledge, catalog] = await Promise.all([
+  const customerTexts = [
+    ...parsed.data.history.filter((message) => message.from === "customer").map((message) => message.text),
+    parsed.data.message,
+  ];
+  const [settings, knowledge, catalog, voice] = await Promise.all([
     getBotSettings(context.workspaceId),
     listKnowledge(context.workspaceId),
     loadCatalogForBot(context.workspaceId),
+    loadVoiceForBot(context.workspaceId, customerTexts),
   ]);
   // As in a conversation: what the customer and the Page said, oldest first.
   const texts = [...parsed.data.history.map((message) => message.text), parsed.data.message];
@@ -78,6 +84,7 @@ export async function POST(request: NextRequest) {
     persona: settings.persona,
     order: { fields: settings.orderFields, draft: previousDraft },
     handoffMessage,
+    voice,
   });
 
   const collects = goalCollectsOrder(settings.persona.goal);
@@ -125,6 +132,8 @@ export async function POST(request: NextRequest) {
       orderReady: orderReady ? { reason: readyReason } : null,
       pictures,
       attempts: answer.attempts,
+      /** The voice examples the bot was shown for this message. */
+      voiceExamples: voice?.examples.length ?? 0,
     },
   });
 }

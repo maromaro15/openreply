@@ -22,6 +22,8 @@ import {
   type PersonaSettings,
 } from "./persona";
 import type { KnowledgeEntry } from "@/app/generated/prisma/client";
+import type { VoiceForPrompt } from "@/lib/voice/format";
+import { voicePromptSection } from "@/lib/voice/select";
 
 export interface PromptMessage {
   from: "customer" | "page";
@@ -49,6 +51,8 @@ export interface PromptInput {
   order?: { fields: OrderFieldValue[]; draft: OrderDraft | null };
   /** The shop's words for "a person will answer that"; the default one when left out. */
   handoffMessage?: string;
+  /** Brand voice (lib/voice): the examples picked for this conversation and the dictionary. */
+  voice?: VoiceForPrompt;
 }
 
 /**
@@ -125,6 +129,9 @@ export function buildSystemInstruction(input: Omit<PromptInput, "history">): str
   if (input.instructions?.trim()) {
     parts.push(section("THE SHOP'S INSTRUCTIONS (tone, dialect, habits; the strict rules still win)", input.instructions));
   }
+  // How the shop talks: under its instructions, above its facts.
+  const voice = voicePromptSection(input.voice);
+  if (voice) parts.push(voice);
   let knowledge = formatKnowledgeBase(input.knowledge);
   if (knowledge.length > KNOWLEDGE_MAX_CHARS) {
     knowledge = `${knowledge.slice(0, KNOWLEDGE_MAX_CHARS)}\n(The rest of the knowledge base was cut: treat anything missing as not in the knowledge base.)`;
@@ -211,6 +218,9 @@ export function guardSources(input: PromptInput, knowledgeTexts: string[]): Guar
       input.campaign?.landingUrl ?? "",
       // The handoff message is the shop's own words, which a partial answer ends with.
       input.handoffMessage ?? "",
+      // The dictionary's right phrases are the shop's words, put in by lib/voice. Never the
+      // examples: they are other conversations, and their facts are not this shop's now.
+      ...(input.voice?.corrections.flatMap((correction) => correction.right) ?? []),
       ...(input.catalogReference ?? []),
       ...input.history.filter(byShop).map((message) => message.text),
     ].filter(Boolean),

@@ -8,6 +8,7 @@
  */
 import { prisma } from "@/lib/db/client";
 import { queueHandoffLearning } from "@/lib/knowledge/jobs/learn";
+import { learnVoiceFromReply } from "@/lib/voice/store";
 import { messageMetadata } from "./echoes";
 import { FacebookApiError, MESSENGER_TEXT_LIMIT, sendMessage, type SendResult } from "./graph";
 import { isUniqueViolation, messagePreview, touchLastMessage } from "./conversations";
@@ -101,6 +102,8 @@ export async function sendHumanReply({
   await prisma.facebookConversation.update({ where: { id: conversation.id }, data: { unreadCount: 0 } });
   // A person answering a handoff may have taught something: queue a look at it.
   await queueHandoffLearning({ id: row.id, text }, conversation);
+  // And the way they said it, when the brand saves its replies as voice examples.
+  await learnVoiceFromReply(row.id);
   return { ok: true, message: serializeMessage(saved) };
 }
 

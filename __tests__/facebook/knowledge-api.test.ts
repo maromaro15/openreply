@@ -226,6 +226,7 @@ describe("/api/bot/test", () => {
       orderReady: null,
       pictures: null,
       attempts: 1,
+      voiceExamples: 0,
     });
     const prompt = ai.generateJson.mock.calls[0][0];
     expect(prompt.systemInstruction).toContain("Robe Kabyle | Price: 4500 DA");

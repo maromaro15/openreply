@@ -9,6 +9,13 @@ import {
   hasWorkspaceRole,
   type WorkspaceContext,
 } from "@/lib/workspace-access";
+import { isClientApiPath } from "./client-paths";
+
+export { CLIENT_HOME, isClientApiPath, isClientPagePath } from "./client-paths";
+
+export function clientBlockedResponse(): Response {
+  return jsonError(403, "Brand owners can only see their inbox and its statistics.");
+}
 
 export function viewOnlyResponse(): Response {
   return jsonError(403, "View only: you cannot change anything in this brand.");
@@ -66,9 +73,10 @@ export async function requireWorkspace(
   const context = await getCurrentWorkspaceContext();
   if (!context) return jsonError(401, "Unauthorized");
   const reads = request.method === "GET" || request.method === "HEAD";
-  // A viewer reads whatever a member reads, and changes nothing.
+  // A brand owner reads their inbox and its statistics, and changes nothing.
   if (context.role === "VIEWER") {
-    if (!(reads && minimumRole === "MEMBER")) return viewOnlyResponse();
+    if (!reads) return viewOnlyResponse();
+    if (minimumRole !== "MEMBER" || !isClientApiPath(new URL(request.url).pathname)) return clientBlockedResponse();
   } else if (!hasWorkspaceRole(context.role, minimumRole)) {
     return jsonError(403, "Only workspace owners and admins can do this.");
   }

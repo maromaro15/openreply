@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { PATHNAME_HEADER } from "@/lib/pathname-header";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/automations", "/logs", "/settings"];
 
@@ -29,15 +30,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  return NextResponse.next();
+  const headers = new Headers(request.headers);
+  headers.set(PATHNAME_HEADER, pathname);
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/automations/:path*",
-    "/logs/:path*",
-    "/settings/:path*",
-    "/login",
-  ],
+  // Every page, so the layout always gets the path; not the API, static files or images.
+  matcher: ["/((?!api/|_next/static|_next/image|.*\\.(?:ico|png|svg|jpg|jpeg|webp|webmanifest|txt|xml)$).*)"],
 };

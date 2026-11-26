@@ -70,6 +70,8 @@ export function moduleTitle(pathname: string): FbStaticKey | null {
   if (under("/facebook/inbox")) return "Messenger inbox";
   if (under("/facebook/knowledge/suggestions")) return "Suggestions to review";
   if (under("/facebook/knowledge")) return "Knowledge base";
+  if (under("/facebook/voice")) return "Brand voice";
+  if (under("/facebook/stats")) return "Statistics";
   if (under("/facebook/products/attributes")) return "Product attributes";
   if (under("/facebook/products/import")) return "Import products";
   if (pathname === "/facebook/products/new") return "New product";

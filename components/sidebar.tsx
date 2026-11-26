@@ -29,14 +29,19 @@ const navItems = [
 
 // Screens of the agency and Facebook modules. Their copy lives in
 // lib/facebook/i18n, so the existing catalogs need no new keys.
-const moduleNavSections: { title: FbStaticKey; items: { label: FbStaticKey; href: string }[] }[] = [
+const moduleNavSections: {
+  title: FbStaticKey;
+  items: { label: FbStaticKey; href: string }[];
+}[] = [
   {
     title: "Facebook",
     items: [
       { label: "Inbox", href: "/facebook/inbox" },
       { label: "Campaigns", href: "/facebook/campaigns" },
       { label: "Products", href: "/facebook/products" },
+      { label: "Statistics", href: "/facebook/stats" },
       { label: "Knowledge base", href: "/facebook/knowledge" },
+      { label: "Brand voice", href: "/facebook/voice" },
       { label: "Alerts", href: "/facebook/alerts" },
       { label: "Pages", href: "/facebook/pages" },
     ],
@@ -44,16 +49,29 @@ const moduleNavSections: { title: FbStaticKey; items: { label: FbStaticKey; href
   { title: "Agency", items: [{ label: "Brands", href: "/agency" }] },
 ];
 
+// A brand owner (VIEWER): their inbox and statistics, nothing of the agency's.
+const clientNavSections: typeof moduleNavSections = [
+  {
+    title: "Facebook",
+    items: [
+      { label: "Inbox", href: "/facebook/inbox" },
+      { label: "Statistics", href: "/facebook/stats" },
+    ],
+  },
+];
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceName: string;
+  client?: boolean;
 }
 
 export default function Sidebar({
   isOpen,
   onClose,
   workspaceName,
+  client = false,
 }: SidebarProps) {
   const { t } = useI18n();
   const { t: tf } = useFbI18n();
@@ -83,22 +101,26 @@ export default function Sidebar({
           className="px-6 py-5 border-b border-border"
           style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
         >
-          <Link href="/dashboard" className="text-base font-semibold">
+          <Link
+            href={client ? "/facebook/inbox" : "/dashboard"}
+            className="text-base font-semibold"
+          >
             Amitec Reply
           </Link>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                aria-current={isActive ? "page" : undefined}
-                className={`
+          {!client &&
+            navItems.map((item) => {
+              const isActive =
+                pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`
                   block px-3 py-2.5 rounded text-sm
                   ${
                     isActive
@@ -106,20 +128,28 @@ export default function Sidebar({
                       : "text-muted hover:text-foreground hover:bg-surface-hover"
                   }
                 `}
-              >
-                {t(item.label)}
-              </Link>
-            );
-          })}
+                >
+                  {t(item.label)}
+                </Link>
+              );
+            })}
 
-          {moduleNavSections.map((section) => (
-            <div key={section.title} className="mt-4 space-y-1 border-t border-border pt-4">
+          {(client ? clientNavSections : moduleNavSections).map((section) => (
+            <div
+              key={section.title}
+              className={
+                client
+                  ? "space-y-1"
+                  : "mt-4 space-y-1 border-t border-border pt-4"
+              }
+            >
               <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 {tf(section.title)}
               </p>
               {section.items.map((item) => {
                 const isActive =
-                  pathname === item.href || pathname.startsWith(item.href + "/");
+                  pathname === item.href ||
+                  pathname.startsWith(item.href + "/");
                 return (
                   <Link
                     key={item.href}
@@ -144,24 +174,38 @@ export default function Sidebar({
         </nav>
 
         <div className="px-5 py-4 border-t border-border">
-          <div className="mb-4"><LanguageSwitcher /></div>
+          <div className="mb-4">
+            <LanguageSwitcher />
+          </div>
           <WorkspaceSwitcher currentName={workspaceName} />
-          <p className="text-xs text-muted">{t("Self-hosted")}</p>
-          <a
-            href={zernioLink({ placement: "sidebar" })}
-            target="_blank"
-            rel="sponsored noopener noreferrer"
-            className="mt-4 flex items-center gap-3 text-xs text-muted hover:text-foreground"
+          {/* Auth.js asks to confirm, then signs out. */}
+          <button
+            type="button"
+            onClick={() => window.location.assign("/api/auth/signout")}
+            className="mb-3 block text-xs text-muted hover:text-foreground"
           >
-            <span>{t("Supported by")}</span>
-            <Image
-              src="/brand/zernio-primary.svg"
-              alt="Zernio"
-              width={64}
-              height={20}
-              className="m-2"
-            />
-          </a>
+            {tf("Sign out")}
+          </button>
+          {!client && (
+            <>
+              <p className="text-xs text-muted">{t("Self-hosted")}</p>
+              <a
+                href={zernioLink({ placement: "sidebar" })}
+                target="_blank"
+                rel="sponsored noopener noreferrer"
+                className="mt-4 flex items-center gap-3 text-xs text-muted hover:text-foreground"
+              >
+                <span>{t("Supported by")}</span>
+                <Image
+                  src="/brand/zernio-primary.svg"
+                  alt="Zernio"
+                  width={64}
+                  height={20}
+                  className="m-2"
+                />
+              </a>
+            </>
+          )}
         </div>
       </aside>
     </>

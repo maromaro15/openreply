@@ -95,6 +95,9 @@ model Workspace {
   knowledgeEntries KnowledgeEntry[]
   alertSettings    AlertSettings?
   alertRecipients  AlertRecipient[]
+  // Brand voice (lib/voice): the brand's example exchanges and corrections.
+  voiceExamples    VoiceExample[]
+  voiceCorrections VoiceCorrection[]
 
   @@index([ownerId])
 }
@@ -819,6 +822,9 @@ model BotSettings {
   orderFields    OrderField[] @default([WILAYA, COLOUR, QUANTITY, NAME, PHONE])
   /// null: the default playbook.
   playbook       String?
+  /// Brand voice: a person's reply in the inbox is saved as a voice example on its own
+  /// (false: the inbox only offers to save it).
+  voiceAutoSave  Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -1200,4 +1206,55 @@ model PostRead {
   readAt      DateTime @default(now())
 
   @@id([workspaceId, postId])
+}
+
+// ─── Brand voice (lib/voice) ────────────────────────────────────────────────
+// Self-contained: the bot reads it, nothing else depends on it. The portable
+// JSON format is lib/voice/format.ts (VoicePack).
+
+/// Where a voice example or correction came from.
+enum VoiceSource {
+  SEED
+  MANUAL
+  HUMAN_REPLY
+  INBOX_CORRECTION
+  IMPORT
+}
+
+/// A real sales exchange the bot imitates: what a customer wrote, and a good reply in the
+/// shop's own voice. workspaceId null: the global set every brand gets.
+model VoiceExample {
+  id              String      @id @default(cuid())
+  workspaceId     String?
+  customerText    String
+  replyText       String
+  source          VoiceSource @default(MANUAL)
+  isActive        Boolean     @default(true)
+  /// The inbox message it was learned from (FacebookMessage.id): saved once.
+  sourceMessageId String?     @unique
+  createdByUserId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, isActive])
+}
+
+/// A known mistake: the wrong phrase, and the phrase(s) to write instead. workspaceId null:
+/// the global dictionary.
+model VoiceCorrection {
+  id              String      @id @default(cuid())
+  workspaceId     String?
+  wrong           String
+  right           String[]
+  source          VoiceSource @default(MANUAL)
+  isActive        Boolean     @default(true)
+  createdByUserId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, isActive])
 }

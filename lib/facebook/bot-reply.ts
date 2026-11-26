@@ -20,6 +20,7 @@ import { prisma } from "@/lib/db/client";
 import { getBotHistoryMessages, getBotMaxFullCards } from "@/lib/ai/env";
 import { enqueueHandoffAlerts } from "@/lib/alerts/dispatch";
 import { answerCustomer } from "@/lib/bot/answer";
+import { loadVoiceForBot } from "@/lib/voice/store";
 import { handoffText, SYSTEM_REASONS, type BotDecision } from "@/lib/bot/classify";
 import { getBotSettings, listKnowledge, type BotSettingsView } from "@/lib/bot/knowledge";
 import { mergeOrder, parseOrderDraft, type OrderDraft } from "@/lib/bot/order";
@@ -420,6 +421,10 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
   );
 
   const previousDraft = parseOrderDraft(conversation.orderDraft);
+  const voice = await loadVoiceForBot(
+    conversation.workspaceId,
+    messages.filter((message) => message.from === "customer").map((message) => message.text)
+  );
   const answer = await answerCustomer({
     businessName: settings.businessName,
     pageName: page.name,
@@ -434,6 +439,7 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     persona: settings.persona,
     order: { fields: settings.orderFields, draft: previousDraft },
     handoffMessage: handoffMessageFor(conversation, settings),
+    voice,
   });
   if (answer.error) console.warn(`[Facebook bot] ${conversationId}: ${answer.error}`);
   // The customer wrote again while the model was thinking: that message's own

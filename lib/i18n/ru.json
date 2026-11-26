@@ -469,6 +469,5 @@
   "{type} post": "Пост {type}",
   "”": "»",
   "← Campaigns": "← Кампании",
-  "Viewer (view only)": "Наблюдатель (только просмотр)",
-  "View only: you can see this brand's campaigns, conversations and statistics, but not change anything.": "Только просмотр: вы видите кампании, переписки и статистику этого бренда, но ничего не можете изменить."
+  "Viewer (view only)": "Наблюдатель (только просмотр)"
 }

@@ -6,6 +6,7 @@
  * Refreshed every 10 seconds while the tab is visible.
  */
 import { useEffect, useRef, useState } from "react";
+import VoiceFromMessage from "@/components/facebook/voice-from-message";
 import Link from "next/link";
 import type { HandoffCategory } from "@/app/generated/prisma/client";
 import { selectWorkspace } from "@/lib/agency/actions";
@@ -236,6 +237,11 @@ function isPersonReply(message: ThreadMessage): boolean {
   );
 }
 
+/** A bot reply with words in it: one the team can correct. */
+function isBotReply(message: ThreadMessage): boolean {
+  return message.direction === "OUTBOUND" && message.author === "BOT" && Boolean(message.text?.trim());
+}
+
 const LEARN_QUESTION_MAX = 200;
 const LEARN_ANSWER_MAX = 1000;
 
@@ -369,12 +375,15 @@ export default function MessengerInbox({
   switchToWorkspaceId,
   linkForeign,
   viewOnly = false,
+  canManage = false,
 }: {
   initialConversationId: string | null;
   switchToWorkspaceId: string | null;
   linkForeign: boolean;
   /** The VIEWER role: reads the conversations, no reply or change of hands. */
   viewOnly?: boolean;
+  /** Owners and admins: may add a bot reply's wrong phrase to the brand's dictionary. */
+  canManage?: boolean;
 }) {
   const { locale } = useI18n();
   const fb = useFbI18n();
@@ -635,7 +644,7 @@ export default function MessengerInbox({
       ].sort((a, b) => a.at.localeCompare(b.at))
     : [];
 
-  // For each person's reply, the customer's last message before it.
+  // For each reply (a person's or the bot's), the customer's last message before it.
   const questionFor = new Map<string, string>();
   let lastCustomer = "";
   for (const item of timeline) {
@@ -644,7 +653,7 @@ export default function MessengerInbox({
     if (message.direction === "INBOUND") {
       const spoken = (message.text ?? message.transcript ?? "").trim();
       if (spoken) lastCustomer = spoken;
-    } else if (isPersonReply(message)) {
+    } else if (isPersonReply(message) || isBotReply(message)) {
       questionFor.set(message.id, lastCustomer);
     }
   }
@@ -923,8 +932,18 @@ export default function MessengerInbox({
                     item.message ? (
                       <div key={item.key} className="space-y-1">
                         <MessageBubble message={item.message} fb={fb} locale={locale} now={now} />
-                        {!viewOnly && questionFor.has(item.message.id) && (
+                        {!viewOnly && questionFor.has(item.message.id) && isPersonReply(item.message) && (
                           <LearnFromReply message={item.message} question={questionFor.get(item.message.id) ?? ""} t={t} />
+                        )}
+                        {!viewOnly && questionFor.has(item.message.id) && (
+                          <VoiceFromMessage
+                            messageId={item.message.id}
+                            text={item.message.text ?? ""}
+                            question={questionFor.get(item.message.id) ?? ""}
+                            bot={isBotReply(item.message)}
+                            canManage={canManage}
+                            t={t}
+                          />
                         )}
                       </div>
                     ) : (

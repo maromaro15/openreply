@@ -17,6 +17,7 @@ import { getBotDebounceMs } from "@/lib/ai/env";
 import { scheduleBotResume } from "./bot-resume";
 import { prisma } from "@/lib/db/client";
 import { queueHandoffLearning } from "@/lib/knowledge/jobs/learn";
+import { learnVoiceFromReply } from "@/lib/voice/store";
 import { privateReplyTranscript } from "./comments";
 import {
   findOrCreateConversation,
@@ -360,6 +361,7 @@ async function recordExternalReply(page: FacebookPage, data: FacebookMessageJob)
   await takeOverConversation(conversation.id, { reason: "META_REPLY" });
   // A person answering a handoff may have taught something: queue a look at it.
   await queueHandoffLearning({ id: stored.id, text: data.text }, conversation);
+  await learnVoiceFromReply(stored.id);
   return "human_reply";
 }
 

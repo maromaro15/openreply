@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientBlockedResponse } from "@/lib/agency/http";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import {
@@ -80,6 +81,8 @@ export async function GET() {
       { status: 401 }
     );
   }
+  // The team is the agency's business, not the brand owner's.
+  if (context.role === "VIEWER") return clientBlockedResponse();
 
   return NextResponse.json({
     success: true,

@@ -1,17 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/top-bar";
-import { useI18n } from "@/lib/i18n/provider";
+import { useFbI18n } from "@/lib/facebook/i18n/client";
+import { CLIENT_HOME, isClientPagePath } from "@/lib/agency/client-paths";
 
 interface DashboardShellProps {
   children: React.ReactNode;
   workspaceName: string;
   instagramUsername: string | null;
   instagramAccountCount: number;
-  /** The VIEWER role: sees the brand, changes nothing (the API refuses every change). */
-  viewOnly?: boolean;
+  /** A brand owner (VIEWER): their inbox and statistics only, read only (the server refuses the rest). */
+  client?: boolean;
 }
 
 export default function DashboardShell({
@@ -19,10 +21,17 @@ export default function DashboardShell({
   workspaceName,
   instagramUsername,
   instagramAccountCount,
-  viewOnly = false,
+  client = false,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { t } = useI18n();
+  const { t } = useFbI18n();
+  const pathname = usePathname();
+  const router = useRouter();
+  // The layout already redirects on load; this covers moving between pages in the app.
+  const offLimits = client && !isClientPagePath(pathname);
+  useEffect(() => {
+    if (offLimits) router.replace(CLIENT_HOME);
+  }, [offLimits, router]);
 
   return (
     // h-dvh, not h-screen: on mobile browsers the URL bar eats into 100vh, which
@@ -32,6 +41,7 @@ export default function DashboardShell({
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         workspaceName={workspaceName}
+        client={client}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -46,12 +56,17 @@ export default function DashboardShell({
             whole page sideways on a phone. */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="px-4 lg:px-8 py-5 sm:py-6 max-w-7xl mx-auto">
-            {viewOnly && (
-              <p role="status" className="mb-4 rounded border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-foreground">
-                {t("View only: you can see this brand's campaigns, conversations and statistics, but not change anything.")}
+            {client && (
+              <p
+                role="status"
+                className="mb-4 rounded border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-foreground"
+              >
+                {t(
+                  "Brand owner view: you see your conversations, the ones waiting for a person, and your statistics.",
+                )}
               </p>
             )}
-            {children}
+            {offLimits ? null : children}
           </div>
         </main>
       </div>

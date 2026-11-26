@@ -6,6 +6,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/client";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
 import { findSelectedMembership } from "@/lib/agency/active-workspace";
+import { CLIENT_HOME, isClientPagePath } from "@/lib/agency/client-paths";
+import { headers } from "next/headers";
+import { PATHNAME_HEADER } from "@/lib/pathname-header";
 
 export async function generateMetadata() {
   const { t } = await getI18n();
@@ -37,6 +40,12 @@ export default async function DashboardLayout({
     where: { workspaceId_userId: { workspaceId: workspace.id, userId: session.user.id } },
     select: { role: true },
   });
+  // A brand owner sees their inbox and statistics only: any other page sends them there.
+  // No path (the proxy did not run) counts as another page.
+  const client = membership?.role === "VIEWER";
+  if (client && !isClientPagePath((await headers()).get(PATHNAME_HEADER) ?? "")) {
+    redirect(CLIENT_HOME);
+  }
   const accounts = await prisma.instagramAccount.findMany({
     where: { workspaceId: workspace.id },
     orderBy: { connectedAt: "desc" },
@@ -49,7 +58,7 @@ export default async function DashboardLayout({
         workspaceName={workspace.name}
         instagramUsername={accounts[0]?.username ?? null}
         instagramAccountCount={accounts.length}
-        viewOnly={membership?.role === "VIEWER"}
+        client={client}
       >
         {children}
       </DashboardShell>

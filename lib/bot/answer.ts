@@ -11,6 +11,15 @@ import { decide, readCustomer, SYSTEM_REASONS, type BotDecision } from "./classi
 import { knowledgeTexts } from "./knowledge";
 import type { CustomerStateValue } from "./persona";
 import { BOT_RESPONSE_SCHEMA, buildBotRequest, guardSources, type PromptInput } from "./prompt";
+import { applyCorrections } from "@/lib/voice/select";
+
+/** The model's JSON with the brand's dictionary applied to its reply, before the guard reads it. */
+export function correctedOutput(data: unknown, input: Pick<PromptInput, "voice">): unknown {
+  const corrections = input.voice?.corrections ?? [];
+  if (corrections.length === 0 || !data || typeof data !== "object" || Array.isArray(data)) return data;
+  const output = data as Record<string, unknown>;
+  return typeof output.reply === "string" ? { ...output, reply: applyCorrections(output.reply, corrections) } : data;
+}
 
 export interface BotAnswer {
   decision: BotDecision;
@@ -63,12 +72,12 @@ export async function answerCustomer(
 
   const sources = guardSources(input, knowledgeTexts(input.knowledge));
   try {
-    const { data } = await generate(options);
+    const data = correctedOutput((await generate(options)).data, input);
     const decision = decide(data, sources);
     if (decision.kind === "handoff" && decision.source === "guard") {
       // One chance to rewrite, told why; refused again, a person answers.
       try {
-        const retry = await generate({
+        const retried = await generate({
           ...options,
           contents: [
             ...options.contents,
@@ -76,10 +85,11 @@ export async function answerCustomer(
             { role: "user", parts: [{ text: rewriteRequest(decision) }] },
           ],
         });
+        const retry = correctedOutput(retried.data, input);
         return {
-          decision: decide(retry.data, sources),
-          ...readCustomer(retry.data),
-          modelOutput: retry.data,
+          decision: decide(retry, sources),
+          ...readCustomer(retry),
+          modelOutput: retry,
           error: null,
           attempts: 2,
         };
