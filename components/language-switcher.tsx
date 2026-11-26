@@ -86,7 +86,9 @@ export default function LanguageSwitcher({
 
   return (
     <div className="space-y-1">
-      <label className="inline-flex items-center gap-2 text-sm text-muted">
+      {/* Wraps when the row does not fit (the 256px sidebar): the select
+          then takes its own line, full width, instead of sticking out. */}
+      <label className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
         <span>{t("Language")}</span>
         <select
           value={locale}
@@ -103,7 +105,7 @@ export default function LanguageSwitcher({
               }
             });
           }}
-          className="min-h-9 rounded border border-border bg-surface px-2 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+          className="min-h-9 min-w-0 grow rounded border border-border bg-surface px-2 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
         >
           <LanguageOptions />
         </select>
