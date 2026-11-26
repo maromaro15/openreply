@@ -138,6 +138,30 @@ describe.skipIf(!databaseUrl)("Messenger messages on PostgreSQL", () => {
     expect(conversation.lastInboundAt).not.toBeNull();
   });
 
+  it("a job that died after storing the message brings the conversation up to date on retry, once", async () => {
+    await processMessageJob(job({ psid: "p_crash", mid: "m_crash_0", text: "الأولى", sentAt: "2026-11-25T10:00:00.000Z" }));
+    const conversation = await conversationOf("p_crash");
+    // The crashed job: the row exists, the conversation never heard of it.
+    await state.db.facebookMessage.create({
+      data: {
+        workspaceId: "ws_a",
+        conversationId: conversation.id,
+        direction: "INBOUND",
+        author: "CUSTOMER",
+        mid: "m_crash_1",
+        text: "الثانية",
+        sentAt: new Date("2026-11-25T11:00:00.000Z"),
+      },
+    });
+    const retry = job({ psid: "p_crash", mid: "m_crash_1", text: "الثانية", sentAt: "2026-11-25T11:00:00.000Z" });
+    await expect(processMessageJob(retry)).resolves.toBe("duplicate");
+    await expect(processMessageJob(retry)).resolves.toBe("duplicate");
+    const after = await conversationOf("p_crash");
+    expect(after.lastInboundAt?.toISOString()).toBe("2026-11-25T11:00:00.000Z");
+    expect(after.lastMessageText).toBe("الثانية");
+    expect(after.unreadCount).toBe(2);
+  });
+
   it("never moves the window or the preview back when an older message finishes last", async () => {
     await processMessageJob(job({ psid: "p_order", text: "الثانية", sentAt: "2026-11-25T12:00:00.000Z" }));
     await processMessageJob(job({ psid: "p_order", text: "الأولى", sentAt: "2026-11-25T11:00:00.000Z" }));
@@ -282,6 +306,18 @@ describe.skipIf(!databaseUrl)("Messenger messages on PostgreSQL", () => {
       mid: "m_lost_answer",
       sentByUserId: "owner",
     });
+  });
+
+  it("the conversation is the person's before the Graph send starts", async () => {
+    await processMessageJob(job({ psid: "p_before_send" }));
+    const conversation = await conversationOf("p_before_send");
+    let modeDuringSend: string | undefined;
+    graph.sendMessage.mockImplementation(async () => {
+      modeDuringSend = (await conversationOf("p_before_send")).mode;
+      return { recipient_id: "p_before_send", message_id: "m_before_send" };
+    });
+    await sendHumanReply({ workspaceId: "ws_a", userId: "owner", conversationId: conversation.id, text: "نعم" });
+    expect(modeDuringSend).toBe("HUMAN");
   });
 
   it("a reply from the inbox takes the conversation from the bot", async () => {

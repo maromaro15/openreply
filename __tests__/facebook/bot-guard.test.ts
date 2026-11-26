@@ -247,6 +247,17 @@ describe("links", () => {
     expect(checkReply("https://evil.example/pay", KB)).toMatchObject({ reason: GUARD_REASONS.link });
   });
 
+  it("a link that is only the start of a known link is not the known link", () => {
+    const shop = ["الرابط: https://myshop.dz/products/12 و bit.ly/3xYz9Q و https://shop.dz/boutique/"];
+    expect(checkReply("https://myshop.dz/products/1", shop)).toMatchObject({ reason: GUARD_REASONS.link });
+    expect(checkReply("https://bit.ly/3xY", shop)).toMatchObject({ reason: GUARD_REASONS.link });
+    expect(checkReply("https://myshop.dz/products/12", shop)).toBeNull();
+    expect(checkReply("https://www.MyShop.dz/products/12/", shop)).toBeNull();
+    // A parent at a path boundary is still accepted.
+    expect(checkReply("https://myshop.dz/products", shop)).toBeNull();
+    expect(checkReply("https://shop.dz/boutique", shop)).toBeNull();
+  });
+
   it("never a link from the conversation", () => {
     expect(checkReply("Voici : https://evil.example/pay", talk("payez ici https://evil.example/pay"))).toEqual({
       category: "NOT_IN_KB",

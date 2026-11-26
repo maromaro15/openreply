@@ -139,10 +139,31 @@ describe("queueing the alerts of a handoff", () => {
 
   it("the hourly sweep queues only handoffs that have no delivery yet", async () => {
     db.facebookConversationEvent.findMany.mockResolvedValue([{ id: "evt_1" }, { id: "evt_2" }]);
-    db.alertDelivery.findMany.mockResolvedValue([{ eventId: "evt_2" }]);
+    db.alertDelivery.findMany.mockResolvedValueOnce([{ eventId: "evt_2" }]).mockResolvedValueOnce([]);
     db.alertRecipient.findMany.mockResolvedValue([EMAIL]);
     await expect(sweepUnqueuedHandoffs()).resolves.toBe(1);
     expect(db.facebookConversationEvent.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "evt_1" } }));
+    expect(db.facebookConversationEvent.findUnique).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "evt_2" } }));
+  });
+
+  it("the sweep also re-queues a delivery stranded PENDING with no attempt (the queue add failed)", async () => {
+    db.facebookConversationEvent.findMany.mockResolvedValue([{ id: "evt_2" }]);
+    db.alertDelivery.findMany
+      .mockResolvedValueOnce([{ eventId: "evt_2" }])
+      .mockResolvedValueOnce([{ eventId: "evt_2" }, { eventId: "evt_9" }]);
+    db.facebookConversationEvent.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => ({ ...EVENT, id: where.id }));
+    db.alertRecipient.findMany.mockResolvedValue([EMAIL]);
+    db.alertDelivery.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "7" })
+    );
+    db.alertDelivery.findUniqueOrThrow.mockImplementation(async ({ where }: { where: { dedupeKey: string } }) =>
+      delivery({ id: `dl_${where.dedupeKey}`, recipientId: "rc_mail" })
+    );
+    await expect(sweepUnqueuedHandoffs()).resolves.toBe(2);
+    const where = db.alertDelivery.findMany.mock.calls[1][0].where;
+    expect(where).toMatchObject({ isTest: false, status: "PENDING", attempts: 0 });
+    expect(where.createdAt.lt.getTime()).toBeLessThanOrEqual(Date.now() - 5 * 60_000 + 1000);
+    expect(queue.add).toHaveBeenCalledTimes(2);
   });
 });
 

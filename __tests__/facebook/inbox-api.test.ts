@@ -359,7 +359,8 @@ describe("POST /api/facebook/conversations/[id]/messages", () => {
       where: { id: "msg_new", sendStatus: "PENDING" },
       data: { sendStatus: "UNCONFIRMED", error: "socket hang up" },
     });
-    expect(db.facebookConversationEvent.create).not.toHaveBeenCalled();
+    // The person has the conversation from the moment they send, so the bot stays out even when the send is unconfirmed.
+    expect(db.facebookConversationEvent.create).toHaveBeenCalledTimes(1);
   });
 
   it.each([

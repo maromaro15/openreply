@@ -127,7 +127,11 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.success) {
-        setError(t("Something went wrong. Please try again."));
+        setError(
+          payload?.code === "rate_limited"
+            ? t("Too many bot tests this hour. Try again later.")
+            : t("Something went wrong. Please try again.")
+        );
         return;
       }
       setOrder(payload.data.order ?? null);

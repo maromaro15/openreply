@@ -47,6 +47,8 @@ vi.mock("@/lib/facebook/queue", async (importOriginal) => ({
 }));
 
 import { processBotReplyJob } from "../../lib/facebook/bot-reply";
+import { FacebookApiError } from "../../lib/facebook/graph";
+import { SYSTEM_REASONS } from "../../lib/bot/classify";
 import { handOffConversation } from "../../lib/facebook/handoff";
 import { processMessageJob } from "../../lib/facebook/messages";
 import { processTranscribeJob } from "../../lib/facebook/transcription";
@@ -150,6 +152,53 @@ describe.skipIf(!databaseUrl)("The bot on PostgreSQL", () => {
     expect(conversation.messages.filter((row) => row.author === "BOT")).toEqual([
       expect.objectContaining({ sendStatus: "SENT", text: "السعر 4500 DA" }),
     ]);
+  });
+
+  it("a message written while the model thinks is answered once, by its own job", async () => {
+    const now = Date.now();
+    await processMessageJob(message({ psid: "p_race", mid: "m_race_A", text: "شحال الروبة؟", sentAt: new Date(now - 10_000).toISOString() }));
+    const jobA = queuedBotJob();
+    let jobB: Job<FacebookBotReplyJob> | null = null;
+    ai.generateJson.mockImplementationOnce(async () => {
+      // The customer writes again while the model answers the first message.
+      await processMessageJob(message({ psid: "p_race", mid: "m_race_B", text: "و كاين لون أحمر؟", sentAt: new Date(now - 5_000).toISOString() }));
+      jobB = queuedBotJob();
+      return { data: { handoff: false, category: "NONE", reason: "", reply: "السعر 4500 DA" }, result: { text: "", finishReason: "STOP", usage: null } };
+    });
+    await expect(processBotReplyJob(jobA)).resolves.toBe("superseded");
+    expect(graph.sendMessage).not.toHaveBeenCalled();
+    await expect(processBotReplyJob(jobB!)).resolves.toBe("replied");
+    // The second job read both messages, and one reply went out.
+    expect(ai.generateJson.mock.calls[1][0].contents[0].parts[0].text).toContain("Customer: شحال الروبة؟\nCustomer: و كاين لون أحمر؟");
+    expect(graph.sendMessage).toHaveBeenCalledTimes(1);
+    const conversation = await conversationOf("p_race");
+    expect(conversation.messages.filter((row) => row.author === "BOT")).toEqual([expect.objectContaining({ replyToMid: "m_race_B", sendStatus: "SENT" })]);
+  });
+
+  it("when the newer message's job runs first, it answers both and the older job steps aside", async () => {
+    const now = Date.now();
+    await processMessageJob(message({ psid: "p_race2", mid: "m_race2_A", text: "salam", sentAt: new Date(now - 10_000).toISOString() }));
+    const jobA = queuedBotJob();
+    const outcomes: string[] = [];
+    ai.generateJson.mockImplementationOnce(async () => {
+      await processMessageJob(message({ psid: "p_race2", mid: "m_race2_B", text: "شحال الروبة؟", sentAt: new Date(now - 5_000).toISOString() }));
+      outcomes.push(await processBotReplyJob(queuedBotJob()));
+      return { data: { handoff: false, category: "NONE", reason: "", reply: "مرحبا" }, result: { text: "", finishReason: "STOP", usage: null } };
+    });
+    outcomes.push(await processBotReplyJob(jobA));
+    expect(outcomes).toEqual(["replied", "superseded"]);
+    expect(graph.sendMessage).toHaveBeenCalledTimes(1);
+    expect(ai.generateJson.mock.calls[1][0].contents[0].parts[0].text).toContain("Customer: salam\nCustomer: شحال الروبة؟");
+  });
+
+  it("a reply Facebook refuses hands the conversation to a person, without writing again", async () => {
+    await processMessageJob(message({ psid: "p_refused" }));
+    graph.sendMessage.mockRejectedValueOnce(new FacebookApiError("(#551) This person isn't available right now.", "not_eligible", 551));
+    await expect(processBotReplyJob(queuedBotJob())).resolves.toBe("failed");
+    expect(graph.sendMessage).toHaveBeenCalledTimes(1);
+    const conversation = await conversationOf("p_refused");
+    expect(conversation).toMatchObject({ mode: "HUMAN", needsHuman: true, handoffCategory: "OTHER", handoffReason: SYSTEM_REASONS.replyRefused });
+    expect(conversation.messages.filter((row) => row.author === "BOT")).toEqual([expect.objectContaining({ sendStatus: "FAILED" })]);
   });
 
   it("answers, recognises its own echo, hands off, then stays silent", async () => {

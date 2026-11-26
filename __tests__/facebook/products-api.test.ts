@@ -413,7 +413,8 @@ describe("the public image link", () => {
 
   it("serves the bytes without a session, with headers that keep them an image", async () => {
     as(null);
-    db.productImage.findUnique.mockResolvedValue({ data: new Uint8Array(PNG), sha256: "abc123" });
+    // A real row: the type and size are stored from the bytes at upload.
+    db.productImage.findUnique.mockResolvedValue({ data: new Uint8Array(PNG), sha256: "abc123", mimeType: "image/png", size: PNG.length });
     const response = await media(publicId);
     expect(response.status).toBe(200);
     expect(db.productImage.findUnique).toHaveBeenCalledWith({ where: { publicId }, select: { data: true, sha256: true } });
@@ -430,7 +431,8 @@ describe("the public image link", () => {
   });
 
   it("answers a known version with 304 and no body", async () => {
-    db.productImage.findUnique.mockResolvedValue({ data: new Uint8Array(PNG), sha256: "abc123" });
+    // A real row: the type and size are stored from the bytes at upload.
+    db.productImage.findUnique.mockResolvedValue({ data: new Uint8Array(PNG), sha256: "abc123", mimeType: "image/png", size: PNG.length });
     const response = await media(publicId, { "If-None-Match": '"abc123"' });
     expect(response.status).toBe(304);
     expect(await response.text()).toBe("");

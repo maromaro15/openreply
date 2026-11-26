@@ -40,6 +40,15 @@ import {
   type FacebookMessageJob,
 } from "./queue";
 
+/**
+ * Voice notes and photos a conversation may have read per hour. Each one
+ * costs a Gemini call (a voice note an ffmpeg run too), shared by every
+ * brand, so one account looping media cannot spend it all.
+ */
+export const MEDIA_PER_CONVERSATION_PER_HOUR = 20;
+const HOUR_MS = 60 * 60_000;
+export const MEDIA_LIMIT_REASON = "Too many voice messages or photos in an hour: this one was not read.";
+
 export type MessageOutcome =
   | "ignored"
   | "duplicate"
@@ -78,6 +87,18 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
   // A «نحب هذا» click: the product (and colour) it names, from this brand only.
   const liked = data.postback ? await likedProduct(page.workspaceId, data.postback.payload) : null;
   const text = liked ? `👍 ${data.text ?? ""}: ${liked.label}`.trim() : (data.text ?? null);
+  // Over the hourly cap the media is kept but not read: the bot sees it as
+  // unread and hands the conversation to a person.
+  const overLimit =
+    (isVoice || isImage) &&
+    (await prisma.facebookMessage.count({
+      where: {
+        conversationId: conversation.id,
+        direction: "INBOUND",
+        attachmentType: { in: ["audio", IMAGE] },
+        createdAt: { gte: new Date(Date.now() - HOUR_MS) },
+      },
+    })) >= MEDIA_PER_CONVERSATION_PER_HOUR;
   let stored: { id: string };
   try {
     stored = await prisma.facebookMessage.create({
@@ -90,8 +111,9 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
         text,
         attachmentType: attachment?.type ?? null,
         attachmentUrl: attachment?.url ?? null,
-        transcriptStatus: isVoice ? "PENDING" : null,
-        ...(isImage ? { imageAnalysis: { status: "PENDING" } } : {}),
+        transcriptStatus: isVoice ? (overLimit ? "FAILED" : "PENDING") : null,
+        ...(isImage ? { imageAnalysis: overLimit ? { status: "FAILED", error: MEDIA_LIMIT_REASON } : { status: "PENDING" } } : {}),
+        ...(overLimit ? { error: MEDIA_LIMIT_REASON } : {}),
         sentAt,
       },
       select: { id: true },
@@ -103,18 +125,15 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
     return "duplicate";
   }
 
-  await prisma.facebookConversation.update({
-    where: { id: conversation.id },
-    data: { unreadCount: { increment: 1 } },
-  });
+  await countInbound(conversation.id, sentAt, true);
   await touchLastMessage(conversation.id, sentAt, messagePreview(text ?? undefined, attachment?.type), "INBOUND");
   // The liked product leads what the conversation is about: its card is shown.
   if (liked) await rememberFocus(conversation.id, [liked.productId], conversation.focusProductIds ?? []);
 
   // Transcribed right away (the audio link expires); the bot waits for it.
-  if (isVoice) await queueTranscription(stored.id);
+  if (isVoice && !overLimit) await queueTranscription(stored.id);
   // Read right away too (the photo's link expires); the bot waits for it.
-  if (isImage) await queueImageRecognition(stored.id);
+  if (isImage && !overLimit) await queueImageRecognition(stored.id);
   await scheduleBotReply(page, conversation, data.mid);
 
   // The person's name, once: the comment gave it when the thread started
@@ -137,6 +156,26 @@ async function processInbound(page: FacebookPage, data: FacebookMessageJob): Pro
 }
 
 /**
+ * Count one inbound message as unread. A message newer than the window moves
+ * the window and counts in one statement, so the first job and a retry of it
+ * never both count it. An older one (finishing late) counts as well, but only
+ * when `late` is set: a retry must not count a message the conversation has
+ * long since passed.
+ */
+async function countInbound(conversationId: string, sentAt: Date, late: boolean): Promise<void> {
+  const moved = await prisma.facebookConversation.updateMany({
+    where: { id: conversationId, OR: [{ lastInboundAt: null }, { lastInboundAt: { lt: sentAt } }] },
+    data: { lastInboundAt: sentAt, unreadCount: { increment: 1 } },
+  });
+  if (moved.count === 0 && late) {
+    await prisma.facebookConversation.updateMany({
+      where: { id: conversationId, lastInboundAt: { gt: sentAt } },
+      data: { unreadCount: { increment: 1 } },
+    });
+  }
+}
+
+/**
  * A message seen again (a webhook retry) after a crash between storing it
  * and queueing what follows: queue it now. Both jobs have fixed IDs, so this
  * never runs anything twice.
@@ -148,9 +187,26 @@ async function resumeFollowUps(
 ): Promise<void> {
   const existing = await prisma.facebookMessage.findUnique({
     where: { mid },
-    select: { id: true, conversationId: true, attachmentType: true, transcriptStatus: true, imageAnalysis: true },
+    select: {
+      id: true,
+      conversationId: true,
+      text: true,
+      sentAt: true,
+      attachmentType: true,
+      transcriptStatus: true,
+      imageAnalysis: true,
+    },
   });
   if (!existing || existing.conversationId !== conversation.id) return;
+  // The job may have died before the conversation learned of this message
+  // (the window, the unread count, the preview).
+  await countInbound(conversation.id, existing.sentAt, false);
+  await touchLastMessage(
+    conversation.id,
+    existing.sentAt,
+    messagePreview(existing.text ?? undefined, existing.attachmentType),
+    "INBOUND"
+  );
   if (existing.attachmentType === "audio" && existing.transcriptStatus === "PENDING") {
     await queueTranscription(existing.id);
   }

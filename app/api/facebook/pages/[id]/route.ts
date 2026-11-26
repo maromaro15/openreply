@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jsonError, requireWorkspace } from "@/lib/agency/http";
 import { deleteDisconnectedPage, disconnectPage, setPageBotEnabled } from "@/lib/facebook/pages";
+import { hasWorkspaceRole } from "@/lib/workspace-access";
 
 type RouteProps = { params: Promise<{ id: string }> };
 
@@ -24,10 +25,14 @@ export async function PATCH(request: NextRequest, { params }: RouteProps) {
  * connect it. Deleting is for owners only.
  */
 export async function DELETE(request: NextRequest, { params }: RouteProps) {
-  const body = (await request.json().catch(() => ({}))) as { purge?: unknown };
-  const purge = body?.purge === true;
-  const context = await requireWorkspace(request, purge ? "OWNER" : "ADMIN");
+  // Signed in and an admin first: the body of anyone else is never read.
+  const context = await requireWorkspace(request, "ADMIN");
   if (context instanceof Response) return context;
+  const body = (await request.json().catch(() => ({}))) as { purge?: unknown } | null;
+  const purge = body?.purge === true;
+  if (purge && !hasWorkspaceRole(context.role, "OWNER")) {
+    return jsonError(403, "Only workspace owners and admins can do this.");
+  }
   const { id } = await params;
 
   const done = purge

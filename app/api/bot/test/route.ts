@@ -10,6 +10,7 @@ import { mergeOrder, orderSummary, parseOrderDraft } from "@/lib/bot/order";
 import { goalCollectsOrder } from "@/lib/bot/persona";
 import { isOrderReady } from "@/lib/bot/persona-store";
 import { loadCatalogForBot } from "@/lib/catalog/bot";
+import { BOT_TEST_LIMIT_PER_HOUR, rateLimitedResponse, takeWorkspaceQuota } from "@/lib/limits/rate-limit";
 import { LIKE_BUTTON, loadActionProducts, publicBaseUrl } from "@/lib/facebook/bot-actions-send";
 import {
   buildCatalogSection,
@@ -42,6 +43,11 @@ export async function POST(request: NextRequest) {
   if (context instanceof Response) return context;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "Write a message of 1 to 1000 characters.");
+  // Each try is a model call: bounded per brand.
+  const quota = await takeWorkspaceQuota("bot-test", context.workspaceId, BOT_TEST_LIMIT_PER_HOUR);
+  if (!quota.allowed) {
+    return rateLimitedResponse("Too many bot tests this hour. Try again later.", quota.retryAfter);
+  }
 
   const [settings, knowledge, catalog] = await Promise.all([
     getBotSettings(context.workspaceId),

@@ -8,6 +8,7 @@ import {
 } from "@/lib/agency/active-workspace";
 import { isSameOrigin, jsonError } from "@/lib/agency/http";
 import {
+  BrandLimitError,
   canCreateBrandWorkspace,
   createBrandWorkspace,
   getWorkspaceSummaries,
@@ -64,7 +65,13 @@ export async function POST(request: NextRequest) {
   const name = normalizeBrandName(body?.name);
   if (!name) return jsonError(400, "A brand name of 1 to 80 characters is required.");
 
-  const workspace = await createBrandWorkspace(userId, name);
+  let workspace: Awaited<ReturnType<typeof createBrandWorkspace>>;
+  try {
+    workspace = await createBrandWorkspace(userId, name);
+  } catch (error) {
+    if (error instanceof BrandLimitError) return jsonError(403, "You have reached the maximum number of brands.");
+    throw error;
+  }
   (await cookies()).set(ACTIVE_WORKSPACE_COOKIE, workspace.id, {
     ...ACTIVE_WORKSPACE_COOKIE_OPTIONS,
     secure: process.env.NODE_ENV === "production",

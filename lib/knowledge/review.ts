@@ -245,6 +245,10 @@ async function writeKnowledge(
   const parsed = knowledgeEntrySchema.safeParse({ kind, title, content });
   if (!parsed.success) throw new Abort("entry_invalid", parsed.error.issues[0]?.message);
 
+  // READ COMMITTED: two approvals could both count the same entries and both
+  // fit. The brand's lock (held to the end of the transaction) serialises
+  // them, so the second counts the first's entry.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`knowledge-entries:${workspaceId}`}))`;
   const existing = await tx.knowledgeEntry.findMany({
     where: { workspaceId },
     select: { kind: true, title: true, content: true, price: true, isActive: true },

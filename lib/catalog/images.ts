@@ -189,6 +189,24 @@ export async function deleteProductImage(workspaceId: string, imageId: string): 
 
 export type PublicImage = { data: Buffer; mimeType: ProductImageMime; sha256: string; size: number };
 
+export type PublicImageMeta = { mimeType: ProductImageMime; sha256: string; size: number };
+
+/**
+ * The same lookup without the bytes, so a revalidation by ETag does not load
+ * an image of up to 15 MiB just to answer 304. The type is the one stored
+ * from the bytes at upload, checked against the three allowed ones.
+ */
+export async function readPublicImageMeta(publicId: string): Promise<PublicImageMeta | null> {
+  if (!isPublicId(publicId)) return null;
+  const image = await prisma.productImage.findUnique({
+    where: { publicId },
+    select: { mimeType: true, sha256: true, size: true },
+  });
+  if (!image) return null;
+  const mimeType = PRODUCT_IMAGE_MIMES.find((mime) => mime === image.mimeType);
+  return mimeType ? { mimeType, sha256: image.sha256, size: image.size } : null;
+}
+
 /**
  * The lookup behind the public route. It has no session, so it goes by the
  * public id alone, not by brand, and a malformed id costs no query. The type

@@ -62,6 +62,21 @@ function explainFailure(result: TestResult, t: FbI18n["t"]): string {
   }
 }
 
+/** What kind of chat it is, so a person who named themselves "Owner" is not mistaken for the group. */
+function chatTypeLabel(type: string, t: FbI18n["t"]): string {
+  switch (type) {
+    case "private":
+      return t("Private chat");
+    case "group":
+    case "supergroup":
+      return t("Group");
+    case "channel":
+      return t("Telegram channel");
+    default:
+      return type;
+  }
+}
+
 const card = "space-y-3 rounded border border-border p-4";
 const input = "block w-full rounded border border-border bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-60";
 const button =
@@ -256,10 +271,15 @@ function AddRecipient({ telegramConnected, onAdded, t }: { telegramConnected: bo
               <ul className="divide-y divide-border rounded border border-border text-sm">
                 {chats.map((chat) => (
                   <li key={chat.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                    <span className="min-w-0 truncate">
-                      {chat.title ?? (chat.username ? `@${chat.username}` : chat.id)}{" "}
-                      <span className="text-xs text-zinc-500">
-                        {chat.type} · {chat.id}
+                    <span className="min-w-0">
+                      {/* The title is whatever the sender chose: the type, @username and id say who it is. */}
+                      <span className="block truncate" dir="auto">
+                        {chat.title ?? t("Unnamed chat")}
+                      </span>
+                      <span className="block truncate text-xs text-muted" dir="auto">
+                        {[chatTypeLabel(chat.type, t), chat.username ? `@${chat.username}` : null, chat.id]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     </span>
                     <button
@@ -367,7 +387,11 @@ export default function AlertsPage() {
     setTestResults(null);
     try {
       const { ok, payload } = await send("/api/alerts/test", "POST", recipientId ? { recipientId } : {});
-      setTestResults(ok ? payload.data.results : [{ recipientId: "-", label: "-", ok: false, error: t("Something went wrong. Please try again.") }]);
+      const failure =
+        payload?.code === "rate_limited"
+          ? t("Too many test alerts this hour. Try again later.")
+          : t("Something went wrong. Please try again.");
+      setTestResults(ok ? payload.data.results : [{ recipientId: "-", label: "-", ok: false, error: failure }]);
     } catch {
       setTestResults([{ recipientId: "-", label: "-", ok: false, error: t("Could not reach the server. Please try again.") }]);
     } finally {

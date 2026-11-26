@@ -28,6 +28,11 @@ vi.mock("@/lib/ai/gemini", async (importOriginal) => ({
   ...ai,
 }));
 vi.mock("@/lib/auth", () => ({ getCurrentUserId: async () => state.context?.userId ?? null }));
+// No Redis here: the limit itself is pinned in security-fixes.test.ts.
+vi.mock("@/lib/limits/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/limits/rate-limit")>()),
+  takeWorkspaceQuota: async () => ({ allowed: true, retryAfter: 0 }),
+}));
 
 import { GET as getSettings, PUT as putSettings } from "../../app/api/bot/settings/route";
 import { GET as listEntries, POST as addEntry } from "../../app/api/bot/knowledge/route";

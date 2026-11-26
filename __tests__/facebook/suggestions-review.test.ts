@@ -16,6 +16,7 @@ const db = vi.hoisted(() => {
     product: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     facebookConversation: { findMany: vi.fn() },
     $transaction: vi.fn(),
+    $executeRaw: vi.fn(),
   };
   // The callback runs against the same fake: what matters is the order and the arguments of the calls.
   client.$transaction.mockImplementation(async (work: (tx: typeof client) => unknown) => work(client));
@@ -198,6 +199,15 @@ describe("approve: the knowledge base", () => {
     expect(db.knowledgeSuggestion.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
       db.knowledgeEntry.create.mock.invocationCallOrder[0]
     );
+  });
+
+  it("takes the brand's advisory lock, as a bound parameter, before counting the entries", async () => {
+    await patch({ action: "approve" });
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    const [strings, ...values] = db.$executeRaw.mock.calls[0];
+    expect(strings.join("?")).toContain("pg_advisory_xact_lock(hashtext(?))");
+    expect(values).toEqual(["knowledge-entries:ws_a"]);
+    expect(db.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(db.knowledgeEntry.findMany.mock.invocationCallOrder[0]);
   });
 
   it("looks the suggestion up inside the brand only", async () => {

@@ -26,6 +26,11 @@ vi.mock("@/lib/alerts/telegram", async (importOriginal) => ({
   ...telegram,
 }));
 vi.mock("@/lib/alerts/dispatch", () => dispatch);
+// No Redis here: the limit itself is pinned in security-fixes.test.ts.
+vi.mock("@/lib/limits/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/limits/rate-limit")>()),
+  takeWorkspaceQuota: async () => ({ allowed: true, retryAfter: 0 }),
+}));
 
 import { DELETE as removeBot, GET as getSettings, PUT as saveBot } from "../../app/api/alerts/settings/route";
 import { GET as listRecipients, POST as addRecipient } from "../../app/api/alerts/recipients/route";

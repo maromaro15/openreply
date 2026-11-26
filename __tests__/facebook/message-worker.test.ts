@@ -40,7 +40,7 @@ vi.mock("@/lib/facebook/queue", async (importOriginal) => ({
   getFacebookQueue: () => queue,
 }));
 
-import { processMessageJob, primaryAttachment } from "../../lib/facebook/messages";
+import { processMessageJob, primaryAttachment, MEDIA_LIMIT_REASON, MEDIA_PER_CONVERSATION_PER_HOUR } from "../../lib/facebook/messages";
 import { ingestPageWebhook } from "../../lib/facebook/ingest";
 import { dispatchFacebookJob } from "../../lib/facebook/worker";
 import { messageJobId, type FacebookMessageJob } from "../../lib/facebook/queue";
@@ -140,13 +140,17 @@ describe("a message from a person", () => {
       }),
       select: { id: true },
     });
-    expect(db.facebookConversation.update).toHaveBeenCalledWith({
-      where: { id: "conv_1" },
-      data: { unreadCount: { increment: 1 } },
-    });
-    // The window moves forward only: an older message finishing late never
-    // shortens it.
+    // The window moves forward only (an older message finishing late never
+    // shortens it), and the same statement counts the message as unread, so
+    // a retry cannot count it twice.
     expect(conversationUpdatesOf("lastInboundAt")).toEqual([
+      {
+        where: {
+          id: "conv_1",
+          OR: [{ lastInboundAt: null }, { lastInboundAt: { lt: new Date("2026-11-25T11:59:00.000Z") } }],
+        },
+        data: { lastInboundAt: new Date("2026-11-25T11:59:00.000Z"), unreadCount: { increment: 1 } },
+      },
       {
         where: {
           id: "conv_1",
@@ -244,6 +248,35 @@ describe("a message from a person", () => {
     );
   });
 
+  it("above the hourly media cap, a voice note or photo is not queued and is marked as not read", async () => {
+    db.facebookMessage.count.mockResolvedValue(MEDIA_PER_CONVERSATION_PER_HOUR);
+    await processMessageJob(job({ mid: "m_loop_a", text: undefined, attachments: [{ type: "audio", url: "https://cdn/a.mp4" }] }));
+    expect(db.facebookMessage.create.mock.calls[0][0].data).toMatchObject({
+      transcriptStatus: "FAILED",
+      error: MEDIA_LIMIT_REASON,
+    });
+    await processMessageJob(job({ mid: "m_loop_p", text: undefined, attachments: [{ type: "image", url: "https://cdn/p.jpg" }] }));
+    expect(db.facebookMessage.create.mock.calls[1][0].data).toMatchObject({
+      imageAnalysis: { status: "FAILED", error: MEDIA_LIMIT_REASON },
+    });
+    expect(queue.add).not.toHaveBeenCalledWith("fb-transcribe", expect.anything(), expect.anything());
+    expect(queue.add).not.toHaveBeenCalledWith("fb-recognize", expect.anything(), expect.anything());
+    // Counted per conversation, inbound voice and photos, over the last hour.
+    expect(db.facebookMessage.count.mock.calls[0][0]).toMatchObject({
+      where: { conversationId: "conv_1", direction: "INBOUND", attachmentType: { in: ["audio", "image"] } },
+    });
+
+    // Just below the cap everything is as before.
+    vi.clearAllMocks();
+    db.facebookMessage.count.mockResolvedValue(MEDIA_PER_CONVERSATION_PER_HOUR - 1);
+    db.facebookMessage.create.mockResolvedValue({ id: "msg_1" });
+    db.facebookConversation.findUnique.mockResolvedValue(conversation());
+    db.facebookConversation.updateMany.mockResolvedValue({ count: 1 });
+    await processMessageJob(job({ mid: "m_ok", text: undefined, attachments: [{ type: "audio", url: "https://cdn/a.mp4" }] }));
+    expect(db.facebookMessage.create.mock.calls[0][0].data).toMatchObject({ transcriptStatus: "PENDING" });
+    expect(queue.add).toHaveBeenCalledWith("fb-transcribe", { messageId: "msg_1" }, expect.anything());
+  });
+
   it("stores a photo as being read, reads it at once, and resumes it after a crash", async () => {
     await processMessageJob(job({ mid: "m_photo", text: "بشحال هادي؟", attachments: [{ type: "image", url: "https://cdn/p.jpg" }] }));
     expect(db.facebookMessage.create.mock.calls[0][0].data).toMatchObject({
@@ -283,6 +316,30 @@ describe("a message from a person", () => {
     db.facebookMessage.findUnique.mockResolvedValue({ id: "msg_t", conversationId: "conv_1", attachmentType: null, transcriptStatus: null });
     await processMessageJob(job());
     expect(queue.add).not.toHaveBeenCalledWith("fb-transcribe", expect.anything(), expect.anything());
+  });
+
+  it("a retry after a crash before the window moved brings the conversation up to date, counting it once", async () => {
+    const stored = { id: "msg_c", conversationId: "conv_1", text: "شحال السعر؟", sentAt: new Date("2026-11-25T11:59:00.000Z"), attachmentType: null, transcriptStatus: null, imageAnalysis: null };
+    db.facebookMessage.create.mockRejectedValue(uniqueViolation());
+    db.facebookMessage.findUnique.mockResolvedValue(stored);
+    await expect(processMessageJob(job())).resolves.toBe("duplicate");
+    const counted = conversationUpdatesOf("unreadCount");
+    expect(counted).toEqual([
+      {
+        where: { id: "conv_1", OR: [{ lastInboundAt: null }, { lastInboundAt: { lt: stored.sentAt } }] },
+        data: { lastInboundAt: stored.sentAt, unreadCount: { increment: 1 } },
+      },
+    ]);
+    expect(conversationUpdatesOf("lastMessageText")[0].data).toEqual({ lastMessageAt: stored.sentAt, lastMessageText: "شحال السعر؟" });
+
+    // The conversation already passed this message: nothing is counted again.
+    db.facebookConversation.updateMany.mockClear();
+    db.facebookConversation.updateMany.mockResolvedValue({ count: 0 });
+    await processMessageJob(job());
+    expect(conversationUpdatesOf("unreadCount")).toHaveLength(1);
+    expect(db.facebookConversation.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "conv_1", lastInboundAt: { gt: stored.sentAt } } })
+    );
   });
 
   it("names the first attachment for the inbox", () => {

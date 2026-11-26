@@ -86,6 +86,11 @@ export default function AgencyPage() {
         body: JSON.stringify({ name }),
       });
       const payload = await response.json();
+      if (response.status === 403 && payload?.error === "You have reached the maximum number of brands.") {
+        setError(t("You have reached the maximum number of brands."));
+        setCreating(false);
+        return;
+      }
       if (!payload.success) throw new Error(payload.error);
       // The new brand is now the active one.
       window.location.assign("/agency");

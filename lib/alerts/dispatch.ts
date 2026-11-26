@@ -232,28 +232,49 @@ export async function sendTestAlerts(workspaceId: string, recipientId: string | 
   return results;
 }
 
+/** A PENDING delivery with no attempt this old has no job behind it (the queue add failed). */
+const STRANDED_AFTER_MS = 5 * 60_000;
+const STRANDED_WINDOW_MS = 24 * 60 * 60_000;
+
 /**
  * Alerts of recent handoffs that never got queued (Redis was down at that
- * moment, say). Run by the worker every hour; enqueueHandoffAlerts makes it
- * harmless to run twice.
+ * moment, say), and deliveries whose row was written but whose queue add
+ * failed (PENDING, never attempted, a few minutes old). Run by the worker
+ * every hour; enqueueHandoffAlerts makes it harmless to run twice: the job id
+ * is fixed per delivery, so re-adding a job that exists does nothing, and
+ * SENT rows are left alone.
  */
 export async function sweepUnqueuedHandoffs(sinceMs = 60 * 60_000): Promise<number> {
+  const now = Date.now();
   const events = await prisma.facebookConversationEvent.findMany({
-    where: { type: "HANDOFF", createdAt: { gte: new Date(Date.now() - sinceMs) } },
+    where: { type: "HANDOFF", createdAt: { gte: new Date(now - sinceMs) } },
     select: { id: true },
   });
-  if (events.length === 0) return 0;
   const withDeliveries = new Set(
-    (
-      await prisma.alertDelivery.findMany({
-        where: { eventId: { in: events.map((event) => event.id) } },
-        select: { eventId: true },
-      })
-    ).map((row) => row.eventId)
+    events.length === 0
+      ? []
+      : (
+          await prisma.alertDelivery.findMany({
+            where: { eventId: { in: events.map((event) => event.id) } },
+            select: { eventId: true },
+          })
+        ).map((row) => row.eventId)
   );
+  const stranded = await prisma.alertDelivery.findMany({
+    where: {
+      isTest: false,
+      status: "PENDING",
+      attempts: 0,
+      eventId: { not: null },
+      createdAt: { gte: new Date(now - Math.max(sinceMs, STRANDED_WINDOW_MS)), lt: new Date(now - STRANDED_AFTER_MS) },
+    },
+    select: { eventId: true },
+  });
+  const eventIds = new Set<string>();
+  for (const event of events) if (!withDeliveries.has(event.id)) eventIds.add(event.id);
+  for (const row of stranded) if (row.eventId) eventIds.add(row.eventId);
+
   let queued = 0;
-  for (const event of events) {
-    if (!withDeliveries.has(event.id)) queued += await enqueueHandoffAlerts(event.id);
-  }
+  for (const eventId of eventIds) queued += await enqueueHandoffAlerts(eventId);
   return queued;
 }

@@ -350,7 +350,7 @@ export default function FacebookPagesPage() {
             <div>
               <dt className="text-xs text-muted">{t("Facebook worker")}</dt>
               <dd className={workerHealthy ? "text-success" : "text-warning"}>
-                {workerHealthy ? t("Running") : t("Not running: start the worker-facebook service.")}
+                {workerHealthy ? t("Running") : t("Not running: start the Facebook worker (npm run worker:facebook, or the facebook-worker service).")}
               </dd>
             </div>
           )}

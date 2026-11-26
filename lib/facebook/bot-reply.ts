@@ -119,22 +119,62 @@ export function toPromptMessages(messages: FacebookMessage[]): PromptMessage[] {
   return result;
 }
 
-/** What the person sent since the Page last spoke. */
+/**
+ * What the person sent that nobody answered yet. The bot's last answer covers
+ * the messages up to the one it was claimed on, by Meta's clock, not by when
+ * the answer left: a message written while the bot was thinking still waits.
+ * A person's or a campaign's message covers everything before it. The bot's
+ * pictures answer nothing by themselves.
+ */
 async function pendingMessages(conversationId: string): Promise<FacebookMessage[]> {
-  const lastOutbound = await prisma.facebookMessage.findFirst({
-    where: { conversationId, direction: "OUTBOUND", sendStatus: { not: "FAILED" } },
-    orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
-    select: { sentAt: true },
-  });
+  const [lastClaim, lastOther] = await Promise.all([
+    prisma.facebookMessage.findFirst({
+      where: { conversationId, direction: "OUTBOUND", author: "BOT", replyToMid: { not: null }, sendStatus: { not: "FAILED" } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { replyToMid: true },
+    }),
+    prisma.facebookMessage.findFirst({
+      where: { conversationId, direction: "OUTBOUND", author: { not: "BOT" }, sendStatus: { not: "FAILED" } },
+      orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
+      select: { sentAt: true },
+    }),
+  ]);
+  const answered = lastClaim?.replyToMid
+    ? await prisma.facebookMessage.findFirst({
+        where: { conversationId, direction: "INBOUND", mid: lastClaim.replyToMid },
+        select: { sentAt: true },
+      })
+    : null;
+  const cutoffs = [answered?.sentAt, lastOther?.sentAt].filter((date): date is Date => date instanceof Date);
+  const cutoff = cutoffs.length ? new Date(Math.max(...cutoffs.map((date) => date.getTime()))) : null;
   return prisma.facebookMessage.findMany({
     where: {
       conversationId,
       direction: "INBOUND",
-      ...(lastOutbound ? { sentAt: { gt: lastOutbound.sentAt } } : {}),
+      ...(cutoff ? { sentAt: { gt: cutoff } } : {}),
     },
     orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }],
     take: 50,
   });
+}
+
+/** The newest message the person sent: the one whose job answers everything before it. */
+async function latestInboundMid(conversationId: string): Promise<string | null> {
+  const latest = await prisma.facebookMessage.findFirst({
+    where: { conversationId, direction: "INBOUND" },
+    orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+    select: { mid: true },
+  });
+  return latest?.mid ?? null;
+}
+
+/** A complete order goes to a person, told apart by the brand's goal. */
+function orderReadyHandoffOf(settings: BotSettingsView) {
+  const reason =
+    goalCollectsOrder(settings.persona.goal) && settings.orderFields.length > 0
+      ? SYSTEM_REASONS.orderReady
+      : SYSTEM_REASONS.readyToBuy;
+  return { kind: "handoff", category: "ORDER_READY", reason, source: "system" } as const;
 }
 
 /** Send one bot message, claimed on the trigger. Outcome of the send only. */
@@ -278,19 +318,22 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
   if (conversation.mode !== "BOT" || conversation.needsHuman) return "not_bot";
 
   // The debounce: a newer message has its own job, which answers both.
-  const latest = await prisma.facebookMessage.findFirst({
-    where: { conversationId, direction: "INBOUND" },
-    orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-    select: { mid: true },
-  });
-  if (!latest || latest.mid !== triggerMid) return "superseded";
+  if ((await latestInboundMid(conversationId)) !== triggerMid) return "superseded";
 
   // A retry, or a stalled job run again, after the reply was claimed.
   const claimed = await prisma.facebookMessage.findFirst({
     where: { conversationId, replyToMid: triggerMid },
     select: { id: true },
   });
-  if (claimed) return "duplicate";
+  if (claimed) {
+    // The reply went out and the job stopped before a complete order reached
+    // a person: it still does, without a second message to the customer.
+    if (isOrderReady(settings, conversation.customerState, parseOrderDraft(conversation.orderDraft))) {
+      const outcome = await handOff(conversation, triggerMid, orderReadyHandoffOf(settings), settings, { tellCustomer: false });
+      return outcome === "not_bot" ? "duplicate" : "order_ready";
+    }
+    return "duplicate";
+  }
 
   if (!isBotWindowOpen(conversation.lastInboundAt)) return "window_closed";
 
@@ -387,6 +430,9 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     order: { fields: settings.orderFields, draft: previousDraft },
   });
   if (answer.error) console.warn(`[Facebook bot] ${conversationId}: ${answer.error}`);
+  // The customer wrote again while the model was thinking: that message's own
+  // job answers both, so this answer is dropped before anything is stored or sent.
+  if ((await latestInboundMid(conversationId)) !== triggerMid) return "superseded";
 
   // The order details the customer gave, merged and checked by the code:
   // the model only reports them.
@@ -397,10 +443,7 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
       : previousDraft;
   await recordCustomer(conversation, triggerMid, answer.customerState, draft, previousDraft);
   const orderReady = isOrderReady(settings, answer.customerState, draft);
-  const readyReason = goalCollectsOrder(settings.persona.goal) && settings.orderFields.length > 0
-    ? SYSTEM_REASONS.orderReady
-    : SYSTEM_REASONS.readyToBuy;
-  const orderReadyHandoff = { kind: "handoff", category: "ORDER_READY", reason: readyReason, source: "system" } as const;
+  const orderReadyHandoff = orderReadyHandoffOf(settings);
 
   if (answer.decision.kind === "handoff") {
     // A complete order outranks a refused reply or a failure: a person
@@ -450,15 +493,23 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     );
   }
   await settle(sent.rowId, error);
-  if (error.kind === "token_invalid") {
-    await markTokenInvalid(page, error);
-    await handOff(
-      conversation,
-      triggerMid,
-      { kind: "handoff", category: "OTHER", reason: SYSTEM_REASONS.tokenInvalid, source: "system" },
-      settings,
-      { tellCustomer: false }
-    );
-  }
+  if (error.kind === "token_invalid") await markTokenInvalid(page, error);
+  // Refused for good (the window, the person's settings, a dead token...): a
+  // person takes over, and a complete order still reaches the team. Telling
+  // the customer would be refused the same way.
+  await handOff(
+    conversation,
+    triggerMid,
+    orderReady
+      ? orderReadyHandoff
+      : {
+          kind: "handoff",
+          category: "OTHER",
+          reason: error.kind === "token_invalid" ? SYSTEM_REASONS.tokenInvalid : SYSTEM_REASONS.replyRefused,
+          source: "system",
+        },
+    settings,
+    { tellCustomer: false }
+  );
   return "failed";
 }

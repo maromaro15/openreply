@@ -10,6 +10,7 @@ const graph = vi.hoisted(() => ({ sendPrivateReply: vi.fn(), replyToComment: vi.
 const limiter = vi.hoisted(() => ({
   reserveDMSlot: vi.fn(),
   releaseDMSlot: vi.fn(),
+  releaseHeldSlot: vi.fn(),
   pauseDMSends: vi.fn(),
   recordDelivery: vi.fn(),
 }));
@@ -317,6 +318,15 @@ describe("the rate limiter (shared with Instagram, keyed fb:<pageId>)", () => {
       expect.objectContaining({ requeueAttempt: 1, slotAt: 1764072040000 }),
       { delay: 40_000, jobId: "fbc_1001_1001_c1_hold_1_1764072040000" }
     );
+  });
+
+  it("gives the held slot back when queueing the retry fails, and lets the error through", async () => {
+    limiter.reserveDMSlot.mockResolvedValue({ allowed: false, shouldRequeue: true, requeueDelayMs: 40_000, slotAt: 1764072040000 });
+    limiter.releaseHeldSlot.mockResolvedValue(undefined);
+    queue.add.mockRejectedValue(new Error("redis down"));
+    await expect(processCommentJob(job())).rejects.toThrow("redis down");
+    expect(limiter.releaseHeldSlot).toHaveBeenCalledWith("fb:1001", "1001_c1", 1764072040000);
+    expect(graph.sendPrivateReply).not.toHaveBeenCalled();
   });
 
   it("leaves the comment to the job that holds its slot", async () => {

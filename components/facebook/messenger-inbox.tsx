@@ -185,7 +185,7 @@ function MessageBubble({ message, fb, locale, now }: { message: ThreadMessage; f
           </p>
         )}
         {message.attachmentType === "audio" && message.transcriptStatus === "FAILED" && message.error && (
-          <p className="mt-0.5 break-words text-[10px] opacity-70">{message.error}</p>
+          <p className="mt-0.5 break-words text-[10px] opacity-70">{translateReason(t, message.error)}</p>
         )}
         {message.photo && (
           <p className="mt-1 break-words text-xs opacity-90" dir="auto">
@@ -203,7 +203,7 @@ function MessageBubble({ message, fb, locale, now }: { message: ThreadMessage; f
           </p>
         )}
         {message.photo?.status === "FAILED" && message.photo.error && (
-          <p className="mt-0.5 break-words text-[10px] opacity-70">{message.photo.error}</p>
+          <p className="mt-0.5 break-words text-[10px] opacity-70">{translateReason(t, message.photo.error)}</p>
         )}
         {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
         <p

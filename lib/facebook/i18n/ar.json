@@ -150,7 +150,7 @@
   "Load more": "عرض المزيد",
   "Facebook worker": "عامل فيسبوك",
   "Running": "يعمل",
-  "Not running: start the worker-facebook service.": "لا يعمل: شغّل خدمة worker-facebook.",
+  "Not running: start the Facebook worker (npm run worker:facebook, or the facebook-worker service).": "لا يعمل: شغّل عامل فيسبوك (npm run worker:facebook، أو خدمة facebook-worker).",
   "Arabic forms still match: سعر also matches السعر and بالسعر and سعرو.": "الصيغ العربية تطابق دائماً: «سعر» تطابق «السعر» و«بالسعر» و«سعرو».",
   "Inbox": "صندوق الرسائل",
   "Messenger inbox": "صندوق رسائل Messenger",
@@ -799,5 +799,14 @@
   "Colour name": "اسم اللون",
   "Card": "البطاقة",
   "Colours": "الألوان",
-  "Read me": "تعليمات"
+  "Read me": "تعليمات",
+  "Facebook refused the bot's reply to this customer.": "رفض فيسبوك ردّ البوت على هذا الزبون.",
+  "Private chat": "محادثة خاصة",
+  "Group": "مجموعة",
+  "Unnamed chat": "محادثة بلا اسم",
+  "Too many bot tests this hour. Try again later.": "تجارب البوت كثيرة في هذه الساعة. حاول لاحقاً.",
+  "Too many test alerts this hour. Try again later.": "تنبيهات التجربة كثيرة في هذه الساعة. حاول لاحقاً.",
+  "You have reached the maximum number of brands.": "وصلت إلى الحد الأقصى لعدد البراندات.",
+  "Too many voice messages or photos in an hour: this one was not read.": "رسائل صوتية أو صور كثيرة في ساعة واحدة: لم تُقرأ هذه.",
+  "Telegram channel": "قناة Telegram"
 }

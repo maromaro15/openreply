@@ -11,6 +11,16 @@ import { HANDOFF_CATEGORIES } from "@/lib/handoff/categories";
 
 export const BRAND_NAME_MAX = 80;
 
+/** Brands one user may own: a bound on what a single account can fill the database with. */
+export const MAX_OWNED_BRANDS = 100;
+
+export class BrandLimitError extends Error {
+  constructor() {
+    super("Brand limit reached");
+    this.name = "BrandLimitError";
+  }
+}
+
 export interface UserWorkspace {
   id: string;
   name: string;
@@ -52,6 +62,18 @@ export async function canCreateBrandWorkspace(
   return owned > 0;
 }
 
+/**
+ * Who runs the whole installation, and so may see what belongs to no single
+ * brand (the worker's failures, its host). AGENCY_OWNER_EMAILS when set;
+ * otherwise the OWNER of the active workspace, as on a single-operator install.
+ */
+export async function isInstanceOperator(userId: string, role: WorkspaceRole): Promise<boolean> {
+  const allowed = agencyOwnerEmails();
+  if (allowed.length === 0) return role === "OWNER";
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  return Boolean(user?.email && allowed.includes(user.email.trim().toLowerCase()));
+}
+
 export function normalizeBrandName(name: unknown): string | null {
   if (typeof name !== "string") return null;
   const trimmed = name.replace(/\s+/g, " ").trim();
@@ -63,6 +85,9 @@ export function normalizeBrandName(name: unknown): string | null {
 export async function createBrandWorkspace(userId: string, name: string) {
   const normalized = normalizeBrandName(name);
   if (!normalized) throw new Error("Invalid brand name");
+  // Counted before the insert, like the other caps: a rare tie may pass.
+  const owned = await prisma.workspaceMember.count({ where: { userId, role: "OWNER" } });
+  if (owned >= MAX_OWNED_BRANDS) throw new BrandLimitError();
   return prisma.workspace.create({
     data: {
       name: normalized,

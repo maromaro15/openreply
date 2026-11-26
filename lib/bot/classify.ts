@@ -21,6 +21,7 @@ export const SYSTEM_REASONS = {
   tooManyReplies: "More than 20 automatic replies in an hour.",
   facebookUnreachable: "The bot could not reach Facebook to answer.",
   tokenInvalid: "The Page's access token is no longer valid.",
+  replyRefused: "Facebook refused the bot's reply to this customer.",
   noReason: "The bot did not give a reason.",
   orderReady: "The customer gave every detail of the order.",
   readyToBuy: "The customer wants to order.",

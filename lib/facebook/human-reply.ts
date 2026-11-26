@@ -65,6 +65,11 @@ export async function sendHumanReply({
     },
   });
 
+  // Whoever answers by hand takes the conversation before the send, so a bot
+  // job that checks "still the bot's?" during the Graph call does not talk
+  // over them.
+  await takeOverConversation(conversation.id, { reason: "INBOX_TAKEOVER", actorUserId: userId });
+
   let result: SendResult;
   try {
     result = await sendMessage(page.pageId, pageToken(page), {
@@ -94,9 +99,6 @@ export async function sendHumanReply({
   }
   await touchLastMessage(conversation.id, sentAt, messagePreview(text), "OUTBOUND");
   await prisma.facebookConversation.update({ where: { id: conversation.id }, data: { unreadCount: 0 } });
-  // Whoever answers by hand takes the conversation: the bot must not talk
-  // over them.
-  await takeOverConversation(conversation.id, { reason: "INBOX_TAKEOVER", actorUserId: userId });
   // A person answering a handoff may have taught something: queue a look at it.
   await queueHandoffLearning({ id: row.id, text }, conversation);
   return { ok: true, message: serializeMessage(saved) };

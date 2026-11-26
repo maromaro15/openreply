@@ -336,6 +336,12 @@ function links(text: string): string[] {
   );
 }
 
+/** A reply link is the known one, or a parent of it at a path boundary: never a cut-off of its last segment. */
+function sameOrParentLink(known: string, url: string): boolean {
+  const bare = (value: string) => value.replace(/\/+$/, "");
+  return bare(known) === bare(url) || known.startsWith(`${bare(url)}/`);
+}
+
 /**
  * Check a reply against what the bot was allowed to know. A plain list of
  * texts is the shop's own words, with no conversation: what callers passed
@@ -358,7 +364,7 @@ export function checkReply(reply: string, sources: GuardSources | string[]): Gua
 
   // Links first: the digits inside a link belong to the link. A customer can paste any link.
   const knownLinks = links(shop);
-  const link = links(trimmed).find((url) => !knownLinks.some((known) => known === url || known.startsWith(url)));
+  const link = links(trimmed).find((url) => !knownLinks.some((known) => sameOrParentLink(known, url)));
   if (link) return { category: "NOT_IN_KB", reason: GUARD_REASONS.link, detail: link };
   const withoutLinks = trimmed.replace(URL_PATTERN, " ");
 

@@ -79,17 +79,31 @@ export async function pruneOrphanImages(now = new Date()): Promise<number> {
 
 /**
  * Run the daily upkeep at most once a day, however often the worker
- * restarts or however many replicas run.
+ * restarts or however many replicas run. Each step stands alone: the lock
+ * holds for a day, so one failing step (Meta down for the token check, say)
+ * must not cost the others their day. A failed step is null in the result
+ * and named in `failed`.
  */
 export async function runDailyMaintenance(): Promise<null | {
-  tokens: { checked: number; invalid: number };
-  pruned: number;
-  orphanImages: number;
+  tokens: { checked: number; invalid: number } | null;
+  pruned: number | null;
+  orphanImages: number | null;
+  failed: string[];
 }> {
   const acquired = await getRedisConnection().set(DAILY_LOCK_KEY, new Date().toISOString(), "EX", 23 * 60 * 60, "NX");
   if (acquired !== "OK") return null;
-  const tokens = await checkPageTokens();
-  const pruned = await pruneWebhookEvents();
-  const orphanImages = await pruneOrphanImages();
-  return { tokens, pruned, orphanImages };
+  const failed: string[] = [];
+  const step = async <T>(name: string, run: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await run();
+    } catch (error) {
+      failed.push(name);
+      console.error(`[Facebook worker] Daily maintenance step "${name}" failed:`, error instanceof Error ? error.message : error);
+      return null;
+    }
+  };
+  const tokens = await step("tokens", checkPageTokens);
+  const pruned = await step("pruned", pruneWebhookEvents);
+  const orphanImages = await step("orphanImages", pruneOrphanImages);
+  return { tokens, pruned, orphanImages, failed };
 }

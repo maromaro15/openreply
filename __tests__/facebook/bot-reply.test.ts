@@ -656,6 +656,23 @@ describe("the customer's state and the order (phase 11)", () => {
     expectHandoff("ORDER_READY", SYSTEM_REASONS.readyToBuy);
   });
 
+  it("a retry after the reply went out still hands a complete order to a person, once and silently", async () => {
+    s.settings = { ...s.settings, orderFields: ["WILAYA"] };
+    s.claimed = { id: "out_1" };
+    s.conversation.customerState = "READY_TO_BUY";
+    s.conversation.orderDraft = { productId: null, productName: null, variantCode: null, values: { WILAYA: "16 - Alger" }, problems: {} };
+    await expect(processBotReplyJob(job())).resolves.toBe("order_ready");
+    expectHandoff("ORDER_READY", SYSTEM_REASONS.orderReady);
+    expect(graph.sendMessage).not.toHaveBeenCalled();
+    expect(ai.generateJson).not.toHaveBeenCalled();
+
+    // Without a complete order, a retry only notes the duplicate.
+    vi.clearAllMocks();
+    s.conversation.orderDraft = null;
+    await expect(processBotReplyJob(job())).resolves.toBe("duplicate");
+    expect(db.facebookConversation.updateMany).not.toHaveBeenCalled();
+  });
+
   it("a complete order outranks a refused reply; the model's own handoff keeps its category", async () => {
     s.settings = { ...s.settings, orderFields: ["WILAYA"] };
     says({ customer_state: "READY_TO_BUY", reply: "عندك تخفيض خاص بيك", order: { wilaya: "Oran" } });

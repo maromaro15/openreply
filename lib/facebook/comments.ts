@@ -29,6 +29,7 @@ import {
   pauseDMSends,
   recordDelivery,
   releaseDMSlot,
+  releaseHeldSlot,
   reserveDMSlot,
 } from "@/lib/utils/rate-limiter";
 import { privateReplyMetadata } from "./echoes";
@@ -324,7 +325,14 @@ export async function processCommentJob(job: Job<FacebookCommentJob>): Promise<C
           : "Rate limited for this Page; retry scheduled",
       },
     });
-    await requeue(job, rate.requeueDelayMs, rate.slotAt);
+    try {
+      await requeue(job, rate.requeueDelayMs, rate.slotAt);
+    } catch (error) {
+      // No job waits for the held slot: give it back, or BullMQ's retry of
+      // this job (which carries no slot) would be taken for a duplicate.
+      if (rate.slotAt) await releaseHeldSlot(limiterKey, data.commentId, rate.slotAt).catch(() => {});
+      throw error;
+    }
     return "held";
   }
 

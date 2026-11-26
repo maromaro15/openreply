@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getFacebookWebhookVerifyToken } from "@/lib/facebook/env";
 import { ingestPageWebhook } from "@/lib/facebook/ingest";
 import { verifyPageSignature } from "@/lib/facebook/webhook";
+import { FACEBOOK_WEBHOOK_MAX_BYTES, readCappedBody } from "@/lib/limits/capped-body";
 
 // Webhooks are never cached, and the HMAC needs Node's crypto.
 export const dynamic = "force-dynamic";
@@ -26,7 +27,12 @@ export function GET(request: NextRequest) {
 
 /** A Page event. Verified over the raw bytes, then queued. */
 export async function POST(request: NextRequest) {
-  const raw = new Uint8Array(await request.arrayBuffer());
+  // Capped before the signature is checked: anyone can reach this route.
+  const raw = await readCappedBody(request, FACEBOOK_WEBHOOK_MAX_BYTES);
+  if (!raw) {
+    console.warn("[Facebook webhook] Rejected delivery: body too large");
+    return NextResponse.json({ success: false, error: "Payload too large" }, { status: 413 });
+  }
   const check = verifyPageSignature(raw, request.headers.get("x-hub-signature-256"));
   if (!check.ok) {
     // Logged, not stored: an unsigned request can come from anyone.
