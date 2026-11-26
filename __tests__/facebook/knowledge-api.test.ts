@@ -114,13 +114,24 @@ describe("/api/bot/settings", () => {
         businessName: "Maison Lina",
         instructions: "بالدارجة",
         handoffMessage: "نرجعولك خويا",
+        resumeAfterMinutes: 45,
       })
     );
     expect(response.status).toBe(200);
+    // Left out: the defaults (the busy message, 3 messages in a row).
+    const saved = {
+      enabled: true,
+      businessName: "Maison Lina",
+      instructions: "بالدارجة",
+      handoffMessage: "نرجعولك خويا",
+      busyMessage: "الفريق مشغول ضرك، نتصلو بيك من بعد",
+      resumeAfterMinutes: 45,
+      resumeAfterMessages: 3,
+    };
     expect(db.botSettings.upsert).toHaveBeenCalledWith({
       where: { workspaceId: "ws_a" },
-      create: { workspaceId: "ws_a", enabled: true, businessName: "Maison Lina", instructions: "بالدارجة", handoffMessage: "نرجعولك خويا" },
-      update: { enabled: true, businessName: "Maison Lina", instructions: "بالدارجة", handoffMessage: "نرجعولك خويا" },
+      create: { workspaceId: "ws_a", ...saved },
+      update: saved,
     });
 
     as("MEMBER");

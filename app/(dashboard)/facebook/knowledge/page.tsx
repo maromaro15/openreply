@@ -32,6 +32,9 @@ type Settings = {
   businessName: string | null;
   instructions: string | null;
   handoffMessage: string;
+  busyMessage: string;
+  resumeAfterMinutes: number;
+  resumeAfterMessages: number;
 };
 
 type SettingsData = {
@@ -224,6 +227,10 @@ function SettingsForm({
       setMessage({ ok: false, text: t("Write the message sent when the bot hands over.") });
       return;
     }
+    if (!settings.busyMessage.trim()) {
+      setMessage({ ok: false, text: t("Write the message sent when the team is busy.") });
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -294,6 +301,49 @@ function SettingsForm({
             className={inputClass}
           />
         </label>
+        <fieldset className="space-y-3 rounded-md border border-border p-3">
+          <legend className="px-1 text-sm font-medium">{t("When nobody from the team answers")}</legend>
+          <p className="text-xs text-muted">
+            {t("After a person takes a conversation (from the inbox or Meta Business Suite), the bot stays silent. It comes back on its own when the customer waits too long. 0 turns a rule off.")}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1 text-sm">
+              <span className="text-muted">{t("Minutes without an answer")}</span>
+              <input
+                type="number"
+                min={0}
+                max={1440}
+                value={settings.resumeAfterMinutes}
+                disabled={!canEdit}
+                onChange={(event) => setSettings({ ...settings, resumeAfterMinutes: Math.max(0, Math.min(1440, Math.trunc(Number(event.target.value) || 0))) })}
+                className={inputClass}
+              />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="text-muted">{t("Customer messages in a row without an answer")}</span>
+              <input
+                type="number"
+                min={0}
+                max={50}
+                value={settings.resumeAfterMessages}
+                disabled={!canEdit}
+                onChange={(event) => setSettings({ ...settings, resumeAfterMessages: Math.max(0, Math.min(50, Math.trunc(Number(event.target.value) || 0))) })}
+                className={inputClass}
+              />
+            </label>
+          </div>
+          <label className="block space-y-1 text-sm">
+            <span className="text-muted">{t("Message when the bot came back and cannot answer (the team is alerted)")}</span>
+            <input
+              value={settings.busyMessage}
+              disabled={!canEdit}
+              maxLength={640}
+              dir="auto"
+              onChange={(event) => setSettings({ ...settings, busyMessage: event.target.value })}
+              className={inputClass}
+            />
+          </label>
+        </fieldset>
         {message && (
           <p role={message.ok ? "status" : "alert"} className={`text-sm ${message.ok ? "text-success" : "text-error"}`}>
             {message.text}

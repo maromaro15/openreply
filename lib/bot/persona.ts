@@ -291,8 +291,25 @@ function chatStyle(persona: PersonaSettings): string[] {
     "- No lists and no markdown: no bullets, no numbering, no bold, no headings.",
     "- No new greeting in an ongoing conversation: answer the latest messages.",
     "- An emoji only if the customer uses them, and one at most.",
+    ...ALGERIAN_VOICE,
   ];
 }
+
+/**
+ * How a seasoned Algerian shopkeeper talks. The examples carry no fact
+ * (no price, colour, place or policy), so nothing can be copied from them
+ * as if it were the shop's: they show the phrasing only.
+ */
+const ALGERIAN_VOICE = [
+  "- When you write Algerian Darija, talk like a seasoned Algerian shopkeeper who knows his customers: short, natural sentences, warm and welcoming, and ask the way a seller asks in his shop. Never translate word for word from French or Modern Standard Arabic, and never write a heavy or formal sentence.",
+  "- These examples show the phrasing only; never take a fact from them:",
+  "  Bad: «تحوّس عليه للصالون ولا للطرقات؟» Good: «وين حاب تحطو، في الصالون ولا في بيت أخرى؟»",
+  "  Bad: «نعلمك بلي المنتوج متوفر بالألوان التالية: …» Good: «كاين بـ… و…، واش يعجبك فيهم؟»",
+  "  Bad: «هل ترغب في إتمام عملية الطلب؟» Good: «نسجلّك الطلبية؟»",
+  "  Bad: «شكرا على تواصلكم معنا، كيف يمكنني مساعدتك؟» Good: «مرحبا بيك، واش نقدر نعاونك؟»",
+  "  Bad: «واش تحب تطلب المنتوج ولا تحب معلومات إضافية؟» Good: «حاب تطلبو ولا عندك سؤال آخر؟»",
+  "  Bad: «يرجى تزويدنا باسمك ورقم هاتفك» Good: «عطيني اسمك ونمرة تيليفونك باش نسجلوك»",
+];
 
 const PLAYBOOK_INTRO =
   "The strict rules, the knowledge base and the catalog win over this playbook: use a persuasion technique only with a true fact written there, and never invent scarcity, urgency, a discount, a gift, social proof or a guarantee.";

@@ -14,6 +14,7 @@
 import type { Job } from "bullmq";
 import type { FacebookPage } from "@/app/generated/prisma/client";
 import { getBotDebounceMs } from "@/lib/ai/env";
+import { scheduleBotResume } from "./bot-resume";
 import { prisma } from "@/lib/db/client";
 import { queueHandoffLearning } from "@/lib/knowledge/jobs/learn";
 import { privateReplyTranscript } from "./comments";
@@ -182,7 +183,7 @@ async function countInbound(conversationId: string, sentAt: Date, late: boolean)
  */
 async function resumeFollowUps(
   page: FacebookPage,
-  conversation: { id: string; mode: string; needsHuman: boolean },
+  conversation: { id: string; mode: string; needsHuman: boolean; modeChangedAt: Date | null },
   mid: string
 ): Promise<void> {
   const existing = await prisma.facebookMessage.findUnique({
@@ -222,11 +223,12 @@ async function resumeFollowUps(
  */
 async function scheduleBotReply(
   page: FacebookPage,
-  conversation: { id: string; mode: string; needsHuman: boolean },
+  conversation: { id: string; mode: string; needsHuman: boolean; modeChangedAt: Date | null },
   mid: string
 ): Promise<void> {
   if (page.status !== "ACTIVE" || !page.botEnabled) return;
-  if (conversation.mode !== "BOT" || conversation.needsHuman) return;
+  // With the team: the bot comes back if nobody answers in time.
+  if (conversation.mode !== "BOT" || conversation.needsHuman) return scheduleBotResume(page, conversation, mid);
   const settings = await prisma.botSettings.findUnique({
     where: { workspaceId: page.workspaceId },
     select: { enabled: true },

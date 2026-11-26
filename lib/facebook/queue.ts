@@ -71,6 +71,14 @@ export interface FacebookBotReplyJob {
   waits?: number;
 }
 
+export const FB_BOT_RESUME_JOB = "fb-bot-resume";
+
+/**
+ * A customer wrote while a person has the conversation: once the brand's
+ * delay passes, the bot takes it back if nobody from the team answered.
+ */
+export type FacebookBotResumeJob = Omit<FacebookBotReplyJob, "waits">;
+
 export const FB_TRANSCRIBE_JOB = "fb-transcribe";
 
 /** A voice message to transcribe: a FacebookMessage row. */
@@ -128,6 +136,7 @@ export type FacebookJob =
   | FacebookCommentJob
   | FacebookMessageJob
   | FacebookBotReplyJob
+  | FacebookBotResumeJob
   | FacebookTranscribeJob
   | FacebookRecognizeJob
   | AlertSendJob
@@ -181,6 +190,10 @@ export function alertJobId(deliveryId: string): string {
 
 export function botReplyJobId(conversationId: string, triggerMid: string): string {
   return `fbr_${jobIdPart(conversationId)}_${Buffer.from(triggerMid).toString("base64url")}`;
+}
+
+export function botResumeJobId(conversationId: string, triggerMid: string): string {
+  return `fbu_${jobIdPart(conversationId)}_${Buffer.from(triggerMid).toString("base64url")}`;
 }
 
 /** Message IDs ("m_…") may hold any character; always encoded. */

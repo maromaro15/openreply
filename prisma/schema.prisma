@@ -631,6 +631,8 @@ enum FacebookModeReason {
   META_REPLY
   /// Returned to the bot from the inbox.
   INBOX_RELEASE
+  /// The bot came back on its own: nobody from the team answered in time.
+  AUTO_RESUME
 }
 
 model FacebookConversation {
@@ -797,6 +799,13 @@ model BotSettings {
   /// Tone, dialect and extra rules from the workspace.
   instructions   String?
   handoffMessage String       @default("نرجعولك")
+  /// Sent instead of handoffMessage when the bot came back on its own after a person went quiet.
+  busyMessage    String       @default("الفريق مشغول ضرك، نتصلو بيك من بعد")
+  /// The bot takes a conversation back when nobody from the team answered the customer for this
+  /// many minutes (0: never).
+  resumeAfterMinutes  Int     @default(20)
+  /// Or when the customer sent this many messages in a row without a person answering (0: never).
+  resumeAfterMessages Int     @default(3)
   /// Phase 11: the bot's persona, goal and sales playbook (lib/bot/persona.ts).
   personaName    String?
   personaStyle   String?

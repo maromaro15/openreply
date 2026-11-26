@@ -36,6 +36,8 @@ export type BotDecision =
       /** Who decided: the model, the guard on its answer, or the code. */
       source: "model" | "guard" | "system";
       detail?: string;
+      /** What the model could answer before handing off the rest, checked by the guard. */
+      partial?: string;
     };
 
 const modelOutput = z.object({
@@ -83,11 +85,14 @@ export function decide(output: unknown, sources: GuardSources | string[]): BotDe
 
   // A category without "handoff" is a contradiction: the safe reading wins.
   if (handoff || category !== "NONE") {
+    // The part it could answer goes out only if the guard passes it; otherwise the handoff message alone.
+    const partial = reply.trim();
     return {
       kind: "handoff",
       category: handoffCategory(category),
       reason: reasonText || SYSTEM_REASONS.noReason,
       source: "model",
+      ...(partial && !checkReply(partial, sources) ? { partial } : {}),
     };
   }
 
@@ -102,4 +107,16 @@ export function decide(output: unknown, sources: GuardSources | string[]): BotDe
     };
   }
   return { kind: "reply", text: reply.trim() };
+}
+
+/**
+ * What the customer gets on a handoff: the part the bot could answer, ending
+ * with the shop's message (added when the model left it out), or the shop's
+ * message alone.
+ */
+export function handoffText(partial: string | undefined, message: string): string {
+  const said = partial?.trim();
+  if (!said) return message;
+  const squash = (text: string) => text.replace(/[\s،,.!؟?]+/g, "");
+  return squash(said).includes(squash(message)) ? said : `${said}\n${message}`;
 }

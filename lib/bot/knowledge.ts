@@ -14,6 +14,9 @@ import { personaOf, type BotPersonaView } from "./persona-store";
 export const KNOWLEDGE_KINDS = ["PRODUCT", "DELIVERY", "FAQ", "RULE", "INFO"] as const satisfies readonly KnowledgeEntryKind[];
 
 export const DEFAULT_HANDOFF_MESSAGE = "نرجعولك";
+export const DEFAULT_BUSY_MESSAGE = "الفريق مشغول ضرك، نتصلو بيك من بعد";
+export const DEFAULT_RESUME_AFTER_MINUTES = 20;
+export const DEFAULT_RESUME_AFTER_MESSAGES = 3;
 /** Past this size the interface warns: long prompts are slower and costlier. */
 export const KNOWLEDGE_WARN_CHARS = 60_000;
 /** Hard stop, far above what a shop needs. */
@@ -27,6 +30,10 @@ export const botSettingsSchema = z.object({
   businessName: text(120).nullable().default(null),
   instructions: text(4000).nullable().default(null),
   handoffMessage: text(640).min(1, "Write the message sent when the bot hands over."),
+  busyMessage: text(640).min(1, "Write the message sent when the team is busy.").default(DEFAULT_BUSY_MESSAGE),
+  /** 0 turns that way of coming back off. At most a day, and 50 messages. */
+  resumeAfterMinutes: z.number().int().min(0).max(1440).default(DEFAULT_RESUME_AFTER_MINUTES),
+  resumeAfterMessages: z.number().int().min(0).max(50).default(DEFAULT_RESUME_AFTER_MESSAGES),
 });
 
 export type BotSettingsInput = z.infer<typeof botSettingsSchema>;
@@ -56,6 +63,9 @@ export interface BotSettingsView extends BotPersonaView {
   businessName: string | null;
   instructions: string | null;
   handoffMessage: string;
+  busyMessage: string;
+  resumeAfterMinutes: number;
+  resumeAfterMessages: number;
 }
 
 export async function getBotSettings(workspaceId: string): Promise<BotSettingsView> {
@@ -65,6 +75,9 @@ export async function getBotSettings(workspaceId: string): Promise<BotSettingsVi
     businessName: row?.businessName ?? null,
     instructions: row?.instructions ?? null,
     handoffMessage: row?.handoffMessage ?? DEFAULT_HANDOFF_MESSAGE,
+    busyMessage: row?.busyMessage ?? DEFAULT_BUSY_MESSAGE,
+    resumeAfterMinutes: row?.resumeAfterMinutes ?? DEFAULT_RESUME_AFTER_MINUTES,
+    resumeAfterMessages: row?.resumeAfterMessages ?? DEFAULT_RESUME_AFTER_MESSAGES,
     ...personaOf(row),
   };
 }
@@ -75,6 +88,9 @@ export async function saveBotSettings(workspaceId: string, input: BotSettingsInp
     businessName: input.businessName || null,
     instructions: input.instructions || null,
     handoffMessage: input.handoffMessage,
+    busyMessage: input.busyMessage,
+    resumeAfterMinutes: input.resumeAfterMinutes,
+    resumeAfterMessages: input.resumeAfterMessages,
   };
   const row = await prisma.botSettings.upsert({
     where: { workspaceId },
@@ -86,6 +102,9 @@ export async function saveBotSettings(workspaceId: string, input: BotSettingsInp
     businessName: row.businessName,
     instructions: row.instructions,
     handoffMessage: row.handoffMessage,
+    busyMessage: row.busyMessage,
+    resumeAfterMinutes: row.resumeAfterMinutes,
+    resumeAfterMessages: row.resumeAfterMessages,
     ...personaOf(row),
   };
 }

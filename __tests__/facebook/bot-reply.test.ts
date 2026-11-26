@@ -240,7 +240,15 @@ describe("scheduling the bot's turn (the debounce)", () => {
   ])("stays silent when %s", async (_case, setup) => {
     setup();
     await processMessageJob(message());
-    expect(queue.add).not.toHaveBeenCalled();
+    expect(queue.add.mock.calls.map(([name]) => name)).not.toContain("fb-bot-reply");
+  });
+
+  it("with a person, only queues the bot's return for when nobody answers in time", async () => {
+    db.facebookConversation.findUnique.mockResolvedValue({ ...s.conversation, mode: "HUMAN", userName: "A" });
+    await processMessageJob(message());
+    expect(queue.add.mock.calls).toEqual([
+      ["fb-bot-resume", { facebookPageId: "fp_1", conversationId: "conv_1", triggerMid: "m_in_9" }, expect.objectContaining({ delay: 20 * 60_000 })],
+    ]);
   });
 });
 
@@ -358,6 +366,23 @@ describe("handing the conversation to a person", () => {
     });
     expect(graph.sendMessage).toHaveBeenCalledTimes(1);
     expect(graph.sendMessage.mock.calls[0][2]).toMatchObject({ text: "نرجعولك" });
+  });
+
+  it("answers what it knows, then hands off the rest with «نرجعولك», in one message", async () => {
+    modelSays({ handoff: true, category: "NOT_IN_KB", reason: "التوصيل لسطيف", reply: "كاين من S حتى XL، وعلى التوصيل لسطيف" });
+    await expect(processBotReplyJob(job())).resolves.toBe("handed_off");
+    expectHandoff("NOT_IN_KB", "التوصيل لسطيف");
+    expect(graph.sendMessage.mock.calls.map((call) => call[2].text)).toEqual(["كاين من S حتى XL، وعلى التوصيل لسطيف\nنرجعولك"]);
+  });
+
+  it("back after nobody from the team answered: the busy message instead, and the team is alerted", async () => {
+    s.conversation = { ...s.conversation, modeReason: "AUTO_RESUME" } as typeof s.conversation;
+    s.settings = { ...s.settings, busyMessage: "الفريق مشغول ضرك، نتصلو بيك من بعد" } as typeof s.settings;
+    modelSays({ handoff: true, category: "NOT_IN_KB", reason: "سؤال على الضمان", reply: "" });
+    await expect(processBotReplyJob(job())).resolves.toBe("handed_off");
+    expectHandoff("NOT_IN_KB", "سؤال على الضمان");
+    expect(graph.sendMessage.mock.calls.map((call) => call[2].text)).toEqual(["الفريق مشغول ضرك، نتصلو بيك من بعد"]);
+    expect(ai.generateJson.mock.calls[0][0].systemInstruction).toContain("«الفريق مشغول ضرك، نتصلو بيك من بعد»");
   });
 
   it("when the guard stops an invented price: NOT_IN_KB, and the price never goes out", async () => {

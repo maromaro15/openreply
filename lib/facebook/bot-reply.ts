@@ -20,7 +20,7 @@ import { prisma } from "@/lib/db/client";
 import { getBotHistoryMessages, getBotMaxFullCards } from "@/lib/ai/env";
 import { enqueueHandoffAlerts } from "@/lib/alerts/dispatch";
 import { answerCustomer } from "@/lib/bot/answer";
-import { SYSTEM_REASONS, type BotDecision } from "@/lib/bot/classify";
+import { handoffText, SYSTEM_REASONS, type BotDecision } from "@/lib/bot/classify";
 import { getBotSettings, listKnowledge, type BotSettingsView } from "@/lib/bot/knowledge";
 import { mergeOrder, parseOrderDraft, type OrderDraft } from "@/lib/bot/order";
 import { goalCollectsOrder, type CustomerStateValue } from "@/lib/bot/persona";
@@ -243,6 +243,11 @@ async function markTokenInvalid(page: FacebookPage, error: FacebookApiError) {
   });
 }
 
+/** Back on its own after the team went quiet, the bot says the team is busy instead. */
+export function handoffMessageFor(conversation: Pick<FacebookConversation, "modeReason">, settings: BotSettingsView): string {
+  return conversation.modeReason === "AUTO_RESUME" ? settings.busyMessage : settings.handoffMessage;
+}
+
 /** Hand the conversation to a person, then tell the customer once. */
 async function handOff(
   conversation: Conversation,
@@ -269,7 +274,7 @@ async function handOff(
   if (!tellCustomer || fresh?.status !== "ACTIVE" || !isBotWindowOpen(conversation.lastInboundAt)) {
     return "handed_off";
   }
-  const sent = await sendClaimed(conversation, triggerMid, settings.handoffMessage);
+  const sent = await sendClaimed(conversation, triggerMid, handoffText(decision.partial, handoffMessageFor(conversation, settings)));
   if (sent.status === "error") {
     // The conversation is with a person and they are alerted: no retry.
     await settle(sent.rowId, sent.error);
@@ -428,6 +433,7 @@ export async function processBotReplyJob(job: Job<FacebookBotReplyJob>): Promise
     catalogReference: catalogReferenceTexts(catalog.products, cards, catalog.attributes),
     persona: settings.persona,
     order: { fields: settings.orderFields, draft: previousDraft },
+    handoffMessage: handoffMessageFor(conversation, settings),
   });
   if (answer.error) console.warn(`[Facebook bot] ${conversationId}: ${answer.error}`);
   // The customer wrote again while the model was thinking: that message's own

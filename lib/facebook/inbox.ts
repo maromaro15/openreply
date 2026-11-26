@@ -58,8 +58,16 @@ export async function takeOverConversation(
   });
 }
 
-/** Back to the bot, which answers the next message. Clears the handoff. */
-export async function returnConversationToBot(conversationId: string, actorUserId: string): Promise<boolean> {
+/**
+ * Back to the bot, which answers the next message. Clears the handoff.
+ * AUTO_RESUME: nobody from the team answered the customer in time
+ * (lib/facebook/bot-resume.ts); the order collected so far is kept.
+ */
+export async function returnConversationToBot(
+  conversationId: string,
+  actorUserId: string | null,
+  reason: "INBOX_RELEASE" | "AUTO_RESUME" = "INBOX_RELEASE"
+): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
     const current = await tx.facebookConversation.findUnique({
       where: { id: conversationId },
@@ -70,19 +78,25 @@ export async function returnConversationToBot(conversationId: string, actorUserI
       where: { id: conversationId, mode: current.mode, needsHuman: current.needsHuman },
       data: {
         mode: "BOT",
-        modeReason: "INBOX_RELEASE",
+        modeReason: reason,
         modeChangedAt: new Date(),
         needsHuman: false,
         handoffCategory: null,
         handoffReason: null,
         handoffAt: null,
         // A new start: the next order is collected from scratch.
-        orderDraft: Prisma.DbNull,
+        ...(reason === "INBOX_RELEASE" ? { orderDraft: Prisma.DbNull } : {}),
       },
     });
     if (updated.count !== 1) return false;
     await tx.facebookConversationEvent.create({
-      data: { workspaceId: current.workspaceId, conversationId, type: "RETURNED_TO_BOT", actorUserId },
+      data: {
+        workspaceId: current.workspaceId,
+        conversationId,
+        type: "RETURNED_TO_BOT",
+        actorUserId,
+        ...(reason === "AUTO_RESUME" ? { reason } : {}),
+      },
     });
     return true;
   });

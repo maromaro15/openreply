@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decide, MODEL_CATEGORIES, SYSTEM_REASONS } from "../../lib/bot/classify";
+import { decide, handoffText, MODEL_CATEGORIES, SYSTEM_REASONS } from "../../lib/bot/classify";
 import { GUARD_REASONS } from "../../lib/bot/guard";
 
 const REFERENCE = ["Robe Kabyle", "4500 DA"];
@@ -69,5 +69,25 @@ describe("the model's decision", () => {
   it("keeps a model's reason short", () => {
     const decision = decide({ handoff: true, category: "OTHER", reason: "x".repeat(1000), reply: "" }, REFERENCE);
     expect(decision.kind === "handoff" && decision.reason.length).toBe(300);
+  });
+});
+
+describe("a partial answer before handing off", () => {
+  it("keeps what the model could answer when the guard passes it", () => {
+    expect(
+      decide({ handoff: true, category: "NOT_IN_KB", reason: "التوصيل لسطيف", reply: "Robe Kabyle بـ 4500 DA" }, REFERENCE)
+    ).toMatchObject({ kind: "handoff", category: "NOT_IN_KB", partial: "Robe Kabyle بـ 4500 DA" });
+  });
+
+  it("drops it when the guard refuses it: an invented price never goes out", () => {
+    expect(decide({ handoff: true, category: "NOT_IN_KB", reason: "x", reply: "التوصيل بـ 600 DA" }, REFERENCE)).not.toHaveProperty(
+      "partial"
+    );
+  });
+
+  it("ends with the shop's message, once", () => {
+    expect(handoffText(undefined, "نرجعولك")).toBe("نرجعولك");
+    expect(handoffText("كاين بالأبيض والرمادي.", "نرجعولك")).toBe("كاين بالأبيض والرمادي.\nنرجعولك");
+    expect(handoffText("كاين بالأبيض، وعلى التوصيل لسطيف نرجعولك!", "نرجعولك")).toBe("كاين بالأبيض، وعلى التوصيل لسطيف نرجعولك!");
   });
 });

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { jsonError, requireWorkspace } from "@/lib/agency/http";
 import { planActions } from "@/lib/bot/actions";
 import { answerCustomer } from "@/lib/bot/answer";
-import { SYSTEM_REASONS } from "@/lib/bot/classify";
+import { handoffText, SYSTEM_REASONS } from "@/lib/bot/classify";
 import { getBotMaxFullCards } from "@/lib/ai/env";
 import { getBotSettings, listKnowledge } from "@/lib/bot/knowledge";
 import { mergeOrder, orderSummary, parseOrderDraft } from "@/lib/bot/order";
@@ -30,6 +30,8 @@ const bodySchema = z.object({
     .default([]),
   /** The order details collected so far in this test, as this route returned them. */
   order: z.unknown().optional(),
+  /** As if the bot came back after nobody from the team answered: the busy message instead of the handoff one. */
+  afterTeam: z.boolean().default(false),
 });
 
 /**
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
   const cards = selectCardProducts(catalog.products, { mentionedIds: mentioned }, getBotMaxFullCards());
   // Whatever the browser sends back is checked again, like a stored draft.
   const previousDraft = parseOrderDraft(parsed.data.order ?? null);
+  const handoffMessage = parsed.data.afterTeam ? settings.busyMessage : settings.handoffMessage;
   const answer = await answerCustomer({
     businessName: settings.businessName,
     pageName: context.workspace.name,
@@ -74,6 +77,7 @@ export async function POST(request: NextRequest) {
     catalogReference: catalogReferenceTexts(catalog.products, cards, catalog.attributes),
     persona: settings.persona,
     order: { fields: settings.orderFields, draft: previousDraft },
+    handoffMessage,
   });
 
   const collects = goalCollectsOrder(settings.persona.goal);
@@ -111,7 +115,8 @@ export async function POST(request: NextRequest) {
     success: true,
     data: {
       decision,
-      handoffMessage: settings.handoffMessage,
+      /** What the customer would get on a handoff: the part the bot answered, then the shop's message. */
+      handoffMessage: handoffText(decision.kind === "handoff" && "partial" in decision ? decision.partial : undefined, handoffMessage),
       error: answer.error,
       customerState: answer.customerState,
       /** Kept by the browser and sent back with the next message. */

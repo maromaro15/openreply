@@ -71,11 +71,25 @@ describe("the system instruction", () => {
     expect(system).not.toContain("WHERE THE CUSTOMER CAME FROM");
   });
 
+  it("gives the shop's handoff message word for word, and asks for a partial answer before it", () => {
+    const system = buildSystemInstruction({ ...input, handoffMessage: "نرجعولك\nخويا" });
+    expect(system).toContain("## HANDING OFF");
+    expect(system).toContain("«نرجعولك خويا»");
+    expect(system).toContain("Answer what you know and hand off only the part you do not.");
+  });
+
+  it("talks like a seasoned Algerian shopkeeper, with good and bad examples", () => {
+    const system = buildSystemInstruction(input);
+    expect(system).toContain("وين حاب تحطو، في الصالون ولا في بيت أخرى؟");
+    expect(system).toContain("تحوّس عليه للصالون ولا للطرقات");
+  });
+
   it("cuts a knowledge base that is far too large, and says so", () => {
     const huge = [{ kind: "FAQ" as const, title: "Q", content: "x".repeat(KNOWLEDGE_MAX_CHARS + 10), price: null, isActive: true }];
     const system = buildSystemInstruction({ ...input, knowledge: huge });
     expect(system).toContain("The rest of the knowledge base was cut");
-    expect(system.length).toBeLessThan(KNOWLEDGE_MAX_CHARS + 10_000);
+    // The fixed rules, persona and handoff sections stay small next to the knowledge base.
+    expect(system.length).toBeLessThan(KNOWLEDGE_MAX_CHARS + 12_000);
   });
 });
 

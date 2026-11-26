@@ -11,6 +11,7 @@ import { processCommentJob } from "./comments";
 import { getFacebookWorkerConcurrency } from "./env";
 import { ALERT_BACKOFF_TYPE, alertBackoff, processAlertJob } from "@/lib/alerts/dispatch";
 import { processBotReplyJob } from "./bot-reply";
+import { processBotResumeJob } from "./bot-resume";
 import { recordFacebookWorkerAlert } from "./health";
 import { processMessageJob } from "./messages";
 import { processTranscribeJob } from "./transcription";
@@ -22,6 +23,7 @@ import {
   ALERT_SEND_JOB,
   FACEBOOK_QUEUE,
   FB_BOT_REPLY_JOB,
+  FB_BOT_RESUME_JOB,
   FB_COMMENT_JOB,
   FB_MESSAGE_JOB,
   FB_TRANSCRIBE_JOB,
@@ -31,6 +33,7 @@ import {
   KB_POSTS_JOB,
   type AlertSendJob,
   type FacebookBotReplyJob,
+  type FacebookBotResumeJob,
   type FacebookCommentJob,
   type FacebookJob,
   type FacebookMessageJob,
@@ -49,6 +52,8 @@ export async function dispatchFacebookJob(job: Job<FacebookJob>): Promise<string
       return processMessageJob(job as Job<FacebookMessageJob>);
     case FB_BOT_REPLY_JOB:
       return processBotReplyJob(job as Job<FacebookBotReplyJob>);
+    case FB_BOT_RESUME_JOB:
+      return processBotResumeJob(job as Job<FacebookBotResumeJob>);
     case FB_TRANSCRIBE_JOB:
       return processTranscribeJob(job as Job<FacebookTranscribeJob>);
     case FB_RECOGNIZE_JOB:

@@ -103,6 +103,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [afterTeam, setAfterTeam] = useState(false);
 
   async function ask() {
     const message = draft.trim();
@@ -123,7 +124,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
       const response = await fetch("/api/bot/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, history: history.slice(-20), order }),
+        body: JSON.stringify({ message, history: history.slice(-20), order, afterTeam }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.success) {
@@ -210,7 +211,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
                   </span>
                 </p>
                 <p className="text-muted">{t("Reason: {reason}", { reason: translateReason(t, turn.decision.reason) })}</p>
-                <p className="text-muted">
+                <p dir="auto" className="whitespace-pre-wrap text-muted">
                   {t("The customer would get: {message}", { message: turn.handoffMessage })}
                 </p>
                 {turn.error && <p className="break-words text-[11px] text-zinc-500">{turn.error}</p>}
@@ -267,6 +268,10 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
           {t("Start over")}
         </button>
       </div>
+      <label className="flex items-center gap-2 text-sm text-muted">
+        <input type="checkbox" checked={afterTeam} onChange={(event) => setAfterTeam(event.target.checked)} />
+        {t("As if the bot came back after nobody from the team answered (busy message)")}
+      </label>
     </div>
   );
 }

@@ -121,6 +121,7 @@ function eventText(event: ThreadEvent, fb: FbI18n): string {
       if (event.reason === "META_REPLY") return t("A person replied from Meta Business Suite");
       return event.actor ? t("{name} took over", { name: event.actor }) : t("Taken over by a person");
     case "RETURNED_TO_BOT":
+      if (event.reason === "AUTO_RESUME") return t("The bot came back: nobody from the team answered");
       return event.actor ? t("{name} returned it to the bot", { name: event.actor }) : t("Returned to the bot");
   }
 }
