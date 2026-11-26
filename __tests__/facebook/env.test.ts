@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PAGE_WEBHOOK_FIELDS,
+  OPTIONAL_PAGE_PERMISSIONS,
   REQUIRED_PAGE_PERMISSIONS,
   getFacebookAppId,
   getFacebookAudioMaxBytes,
@@ -18,9 +19,9 @@ afterEach(() => {
 });
 
 describe("Facebook environment", () => {
-  it("asks for the five Page permissions and four webhook fields", () => {
+  it("requires four Page permissions, keeps pages_manage_engagement optional, and asks for four webhook fields", () => {
+    expect(OPTIONAL_PAGE_PERMISSIONS).toEqual(["pages_manage_engagement"]);
     expect([...REQUIRED_PAGE_PERMISSIONS].sort()).toEqual([
-      "pages_manage_engagement",
       "pages_manage_metadata",
       "pages_messaging",
       "pages_read_engagement",

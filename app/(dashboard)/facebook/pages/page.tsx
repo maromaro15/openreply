@@ -17,6 +17,7 @@ type PageRow = {
   status: "ACTIVE" | "TOKEN_INVALID" | "DISCONNECTED";
   tokenLast4: string | null;
   tokenExpiresAt: string | null;
+  grantedScopes: string[];
   subscribedFields: string[];
   webhookSubscribed: boolean;
   botEnabled: boolean;
@@ -29,6 +30,7 @@ type Setup = {
   verifyTokenConfigured: boolean;
   fields: string[];
   permissions: string[];
+  optionalPermissions: string[];
   missingEnv: string[];
 };
 
@@ -360,6 +362,12 @@ export default function FacebookPagesPage() {
               {setup.permissions.join(", ")}
             </dd>
           </div>
+          <div>
+            <dt className="text-xs text-muted">{t("Optional, for public replies under comments")}</dt>
+            <dd dir="ltr" className="text-start font-mono text-xs text-foreground">
+              {setup.optionalPermissions.join(", ")}
+            </dd>
+          </div>
         </dl>
       </section>
 
@@ -435,6 +443,15 @@ export default function FacebookPagesPage() {
                 </div>
               </dl>
             )}
+
+            {page.status !== "DISCONNECTED" &&
+              setup.optionalPermissions.some((scope) => !page.grantedScopes.includes(scope)) && (
+                <p className="rounded border border-warning/20 bg-warning/10 p-2 text-xs text-warning" dir="auto">
+                  {t("Public replies under comments are off: the token lacks {list}. Private replies and the bot work.", {
+                    list: setup.optionalPermissions.filter((scope) => !page.grantedScopes.includes(scope)).join(", "),
+                  })}
+                </p>
+              )}
 
             {page.lastError && (
               <p className="rounded border border-error/20 bg-error/10 p-2 text-xs text-error" dir="auto">

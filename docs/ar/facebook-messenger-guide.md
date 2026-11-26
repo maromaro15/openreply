@@ -247,12 +247,12 @@
 ### 3.2 المنتجات والصلاحيات
 
 1. في لوحة التطبيق أضف المنتجين **Messenger** و**Webhooks** (Add product ← Set up).
-2. الصلاحيات الخمس التي يحتاجها التطبيق، ويرفض الربط بدونها:
+2. الصلاحيات الأربع التي يرفض الربط بدونها، والخامسة اختيارية:
    - `pages_messaging`
    - `pages_read_engagement`
    - `pages_manage_metadata`
    - `pages_show_list`
-   - `pages_manage_engagement` (للرد العلني تحت التعليقات)
+   - `pages_manage_engagement` (اختيارية، للرد العلني تحت التعليقات فقط). بدونها تُربط الصفحة، ويعمل الرد الخاص والبوت، ويتوقف الرد العلني، ويظهر سببه تحت الصفحة وفي «سجل التعليقات».
 
 ### 3.3 الـ webhook
 
@@ -286,7 +286,7 @@
 - للتجربة: أضف حساباً ثانياً كـ Tester، واقبل الدعوة منه، وعلّق وراسل منه.
 - **لخدمة الزبائن الحقيقيين:**
   1. أكمل Business Verification لحساب Business.
-  2. من App Review ← Permissions and Features، اطلب Advanced Access للصلاحيات الخمس.
+  2. من App Review ← Permissions and Features، اطلب Advanced Access للصلاحيات الأربع، والخامسة إن كنت تستعمل الرد العلني.
   3. اشرح لكل صلاحية استعمالها، وسجّل فيديو قصيراً: تعليق ← رد خاص، رسالة ← رد البوت، رد من صندوق الرسائل.
   4. بعد الموافقة، حوّل App Mode إلى **Live** (أو Publish، حسب الواجهة).
 - **اختياري:** ميزة Human Agent تسمح لإنسان بالرد حتى 7 أيام بدل 24 ساعة. اطلبها من App Review، ولا تفعّلها في OpenReply قبل الموافقة (القسم 9).
@@ -300,14 +300,14 @@
 - **user token** لمسؤول عن الصفحة: السيرفر يستبدله بـ token طويل المدة، ثم تختار الصفحات. **هذا الأسهل.**
 - **Page token طويل المدة**: لصفحة واحدة.
 
-يرفض السيرفر الـ token إن كان من تطبيق آخر، أو تنقصه صلاحية من الخمس، أو ينتهي خلال أقل من أسبوع.
+يرفض السيرفر الـ token إن كان من تطبيق آخر، أو تنقصه صلاحية من الأربع المطلوبة، أو ينتهي خلال أقل من أسبوع.
 
 ### 4.1 الطريقة الأسهل: user token
 
 1. افتح Graph API Explorer: developers.facebook.com/tools/explorer.
 2. في Meta App اختر تطبيقك.
 3. في User or Page اختر User Token.
-4. في Permissions أضف الصلاحيات الخمس: `pages_messaging` و`pages_read_engagement` و`pages_manage_metadata` و`pages_show_list` و`pages_manage_engagement`.
+4. في Permissions أضف الصلاحيات الأربع: `pages_messaging` و`pages_read_engagement` و`pages_manage_metadata` و`pages_show_list`، و`pages_manage_engagement` إن أردت الرد العلني تحت التعليقات.
 5. اضغط Generate Access Token.
 6. في نافذة فيسبوك اختر **كل الصفحات** التي تريد ربطها، ثم وافق.
 7. انسخ الـ token من خانة Access Token.

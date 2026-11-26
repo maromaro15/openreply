@@ -186,9 +186,15 @@ describe("connecting a Page token", () => {
     expect(await connectWithToken({ workspaceId: "ws_a", token: PAGE_TOKEN })).toMatchObject({
       error: {
         code: "missing_permissions",
-        missing: ["pages_read_engagement", "pages_manage_metadata", "pages_manage_engagement"],
+        missing: ["pages_read_engagement", "pages_manage_metadata"],
       },
     });
+  });
+
+  it("connects a token without pages_manage_engagement (public replies stay off)", async () => {
+    const scopes = ALL_SCOPES.filter((scope) => scope !== "pages_manage_engagement");
+    graph.debugToken.mockResolvedValue(pageInfo({ scopes }));
+    expect(await connectWithToken({ workspaceId: "ws_a", token: PAGE_TOKEN })).toMatchObject({ kind: "connected" });
   });
 
   it("refuses a token that expires within a week, accepts a longer one", async () => {
@@ -338,8 +344,8 @@ describe("subscription, disconnection and setup", () => {
         "pages_read_engagement",
         "pages_manage_metadata",
         "pages_show_list",
-        "pages_manage_engagement",
       ],
+      optionalPermissions: ["pages_manage_engagement"],
       missingEnv: [],
     });
   });

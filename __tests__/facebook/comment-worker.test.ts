@@ -37,7 +37,14 @@ import { renderTemplate, utmCampaign, withUtm } from "../../lib/facebook/templat
 import type { FacebookCommentJob } from "../../lib/facebook/queue";
 
 const NOW = new Date("2026-11-25T12:00:00Z");
-const PAGE = { id: "fp_1", pageId: "1001", workspaceId: "ws_a", status: "ACTIVE", accessToken: "enc" };
+const PAGE = {
+  id: "fp_1",
+  pageId: "1001",
+  workspaceId: "ws_a",
+  status: "ACTIVE",
+  accessToken: "enc",
+  grantedScopes: ["pages_messaging", "pages_manage_engagement"],
+};
 
 function campaign(overrides: Record<string, unknown> = {}) {
   return {
@@ -377,6 +384,17 @@ describe("the public reply", () => {
       where: { id: "log_1" },
       data: { publicReplyError: "(#200) permission", publicReplyDeliveryUnconfirmed: false },
     });
+  });
+
+  it("is skipped and logged, while the private reply still goes, when the token lacks pages_manage_engagement", async () => {
+    db.facebookPage.findUnique.mockResolvedValue({ ...PAGE, grantedScopes: ["pages_messaging"] });
+    await expect(processCommentJob(job())).resolves.toBe("sent");
+    expect(graph.replyToComment).not.toHaveBeenCalled();
+    expect(db.facebookCommentLog.update).toHaveBeenCalledWith({
+      where: { id: "log_1" },
+      data: { publicReplyError: "Skipped: the Page token lacks pages_manage_engagement" },
+    });
+    expect(graph.sendPrivateReply).toHaveBeenCalled();
   });
 });
 

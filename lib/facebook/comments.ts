@@ -36,6 +36,7 @@ import { privateReplyMetadata } from "./echoes";
 import { FacebookApiError, replyToComment, sendPrivateReply, type SendResult } from "./graph";
 import { matchPageKeywords } from "./keywords";
 import { pageToken } from "./pages";
+import { PUBLIC_REPLY_PERMISSION } from "./env";
 import { commentJobId, FB_COMMENT_JOB, getFacebookQueue, type FacebookCommentJob } from "./queue";
 import { recordPrivateReplyConversation } from "./conversations";
 import { firstName, pickOne, renderTemplate, utmCampaign, withUtm } from "./templates";
@@ -292,7 +293,15 @@ export async function processCommentJob(job: Job<FacebookCommentJob>): Promise<C
   const token = pageToken(page);
 
   if (campaign.publicReplyEnabled && !log.publicReplySentAt && !log.publicReplyDeliveryUnconfirmed) {
-    await sendPublicReply(log, campaign, token, data.commenterName);
+    if (page.grantedScopes.includes(PUBLIC_REPLY_PERMISSION)) {
+      await sendPublicReply(log, campaign, token, data.commenterName);
+    } else if (!log.publicReplyError) {
+      // Logged, not sent: Meta would reject it, and the private reply still goes out.
+      await prisma.facebookCommentLog.update({
+        where: { id: log.id },
+        data: { publicReplyError: `Skipped: the Page token lacks ${PUBLIC_REPLY_PERMISSION}` },
+      });
+    }
   }
 
   if (

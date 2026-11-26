@@ -808,5 +808,7 @@
   "Too many test alerts this hour. Try again later.": "تنبيهات التجربة كثيرة في هذه الساعة. حاول لاحقاً.",
   "You have reached the maximum number of brands.": "وصلت إلى الحد الأقصى لعدد البراندات.",
   "Too many voice messages or photos in an hour: this one was not read.": "رسائل صوتية أو صور كثيرة في ساعة واحدة: لم تُقرأ هذه.",
-  "Telegram channel": "قناة Telegram"
+  "Telegram channel": "قناة Telegram",
+  "Optional, for public replies under comments": "اختيارية، للرد العلني تحت التعليقات",
+  "Public replies under comments are off: the token lacks {list}. Private replies and the bot work.": "الرد العلني تحت التعليقات متوقف: الـ token تنقصه {list}. الرد الخاص والبوت يعملان."
 }

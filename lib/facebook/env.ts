@@ -8,14 +8,17 @@
  */
 import { getMetaGraphApiVersion } from "@/lib/env";
 
-/** Permissions a Page token needs for everything this channel does. */
+/** Permissions a Page token needs to connect: private replies, the bot and the inbox. */
 export const REQUIRED_PAGE_PERMISSIONS = [
   "pages_messaging",
   "pages_read_engagement",
   "pages_manage_metadata",
   "pages_show_list",
-  "pages_manage_engagement",
 ] as const;
+
+/** Only the public reply under a comment needs it; without it that reply is skipped. */
+export const PUBLIC_REPLY_PERMISSION = "pages_manage_engagement";
+export const OPTIONAL_PAGE_PERMISSIONS = [PUBLIC_REPLY_PERMISSION] as const;
 
 /** Page webhook fields the app subscribes to on every connected Page. */
 export const PAGE_WEBHOOK_FIELDS = ["feed", "messages", "message_echoes", "messaging_postbacks"] as const;

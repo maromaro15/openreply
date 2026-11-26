@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db/client";
 import { decryptToken, encryptToken } from "@/lib/meta/oauth";
 import { getBaseUrl } from "@/lib/env";
 import {
+  OPTIONAL_PAGE_PERMISSIONS,
   PAGE_WEBHOOK_FIELDS,
   REQUIRED_PAGE_PERMISSIONS,
   getFacebookAppId,
@@ -445,6 +446,7 @@ export function webhookSetup() {
     verifyTokenConfigured: Boolean(getFacebookWebhookVerifyToken()),
     fields: [...PAGE_WEBHOOK_FIELDS],
     permissions: [...REQUIRED_PAGE_PERMISSIONS],
+    optionalPermissions: [...OPTIONAL_PAGE_PERMISSIONS],
     missingEnv: missingConnectEnv(),
   };
 }
