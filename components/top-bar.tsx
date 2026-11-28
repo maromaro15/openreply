@@ -3,14 +3,18 @@
 /**
  * Top Bar
  *
- * Page title, mobile hamburger, and connection status.
+ * Page title, mobile hamburger, back arrow on pages outside the menu, and
+ * connection status.
  */
 
 import type { StaticMessageKey } from "@/lib/i18n";
 import { moduleTitle } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 import { useI18n } from "@/lib/i18n/provider";
-import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import BackArrow from "@/components/back-arrow";
+import { backTarget } from "@/lib/navigation";
 
 const pageTitles: Record<string, StaticMessageKey> = {
   "/dashboard": "Dashboard",
@@ -40,6 +44,10 @@ export default function TopBar({
   const { t } = useI18n();
   const { t: tf } = useFbI18n();
   const pathname = usePathname();
+  const router = useRouter();
+  const back = backTarget(pathname);
+  const backClass =
+    "-ms-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded text-foreground hover:bg-surface-hover";
   // Agency and Facebook screens carry their own titles (lib/facebook/i18n).
   const moduleKey = moduleTitle(pathname);
   const title: StaticMessageKey = pageTitles[pathname] ?? (
@@ -66,6 +74,21 @@ export default function TopBar({
         >
           {t("Menu")}
         </button>
+        {back === null ? null : back ? (
+          <Link href={back} aria-label={tf("Back")} className={backClass}>
+            <BackArrow />
+          </Link>
+        ) : (
+          // No parent page: back to wherever the user came from.
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? router.back() : router.push("/dashboard"))}
+            aria-label={tf("Back")}
+            className={backClass}
+          >
+            <BackArrow />
+          </button>
+        )}
         <h1 className="truncate text-base font-semibold sm:text-lg">
           {moduleKey ? tf(moduleKey) : t(title)}
         </h1>

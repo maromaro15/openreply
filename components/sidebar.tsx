@@ -8,57 +8,13 @@
 
 import LanguageSwitcher from "@/components/language-switcher";
 import WorkspaceSwitcher from "@/components/agency/workspace-switcher";
-import type { FbStaticKey } from "@/lib/facebook/i18n";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
 import Image from "next/image";
 import { zernioLink } from "@/lib/zernio-links";
 import { usePathname } from "next/navigation";
-
-const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Overview", href: "/overview" },
-  { label: "Inbox", href: "/inbox" },
-  { label: "Campaigns", href: "/campaigns" },
-  { label: "DM Logs", href: "/logs" },
-  { label: "Settings", href: "/settings" },
-  { label: "API & MCP", href: "/integrations" },
-  { label: "Diagnostics", href: "/diagnostics" },
-] as const;
-
-// Screens of the agency and Facebook modules. Their copy lives in
-// lib/facebook/i18n, so the existing catalogs need no new keys.
-const moduleNavSections: {
-  title: FbStaticKey;
-  items: { label: FbStaticKey; href: string }[];
-}[] = [
-  {
-    title: "Facebook",
-    items: [
-      { label: "Inbox", href: "/facebook/inbox" },
-      { label: "Campaigns", href: "/facebook/campaigns" },
-      { label: "Products", href: "/facebook/products" },
-      { label: "Statistics", href: "/facebook/stats" },
-      { label: "Knowledge base", href: "/facebook/knowledge" },
-      { label: "Brand voice", href: "/facebook/voice" },
-      { label: "Alerts", href: "/facebook/alerts" },
-      { label: "Pages", href: "/facebook/pages" },
-    ],
-  },
-  { title: "Agency", items: [{ label: "Brands", href: "/agency" }] },
-];
-
-// A brand owner (VIEWER): their inbox and statistics, nothing of the agency's.
-const clientNavSections: typeof moduleNavSections = [
-  {
-    title: "Facebook",
-    items: [
-      { label: "Inbox", href: "/facebook/inbox" },
-      { label: "Statistics", href: "/facebook/stats" },
-    ],
-  },
-];
+import { clientNavSections, moduleNavSections, navItems } from "@/lib/navigation";
 
 interface SidebarProps {
   isOpen: boolean;

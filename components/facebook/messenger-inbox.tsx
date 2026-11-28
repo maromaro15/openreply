@@ -6,6 +6,7 @@
  * Refreshed every 10 seconds while the tab is visible.
  */
 import { useEffect, useRef, useState } from "react";
+import BackArrow from "@/components/back-arrow";
 import VoiceFromMessage from "@/components/facebook/voice-from-message";
 import Link from "next/link";
 import type { HandoffCategory } from "@/app/generated/prisma/client";
@@ -859,9 +860,10 @@ export default function MessengerInbox({
                   <button
                     type="button"
                     onClick={() => setActiveId(null)}
-                    className="-ms-1 shrink-0 rounded px-2 py-1 text-sm text-muted hover:text-foreground md:hidden"
+                    aria-label={t("Back")}
+                    className="-ms-2 -mt-1.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded text-foreground hover:bg-surface-hover md:hidden"
                   >
-                    {t("Back")}
+                    <BackArrow />
                   </button>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">
