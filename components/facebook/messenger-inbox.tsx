@@ -25,6 +25,7 @@ import { HANDOFF_CATEGORIES, HANDOFF_CATEGORY_BADGE } from "@/lib/handoff/catego
 import { CUSTOMER_STATE_BADGE, CUSTOMER_STATE_LABELS, ORDER_LINE_LABELS } from "@/lib/bot/labels";
 import type { CustomerStateValue } from "@/lib/bot/persona";
 import { useI18n } from "@/lib/i18n/provider";
+import { notifyUnreadChanged } from "@/lib/facebook/unread";
 
 const POLL_MS = 10_000;
 const PAGE_SIZE = 30;
@@ -527,7 +528,9 @@ export default function MessengerInbox({
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "read" }),
-              }).catch(() => {});
+              })
+                .then(notifyUnreadChanged)
+                .catch(() => {});
               setList((current) =>
                 current && {
                   ...current,
@@ -788,8 +791,13 @@ export default function MessengerInbox({
                       }`}
                     >
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className={`truncate text-sm text-foreground ${item.unreadCount > 0 ? "font-semibold" : "font-medium"}`}>
-                          {item.userName || t("Customer")}
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {item.unreadCount > 0 && (
+                            <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+                          )}
+                          <span className={`truncate text-sm text-foreground ${item.unreadCount > 0 ? "font-bold" : "font-medium"}`}>
+                            {item.userName || t("Customer")}
+                          </span>
                         </span>
                         <span className="shrink-0 text-[11px] text-zinc-500">
                           {formatTime(item.lastMessageAt, locale, now)}
@@ -819,7 +827,9 @@ export default function MessengerInbox({
                         )}
                       </div>
                       {item.lastMessageText && (
-                        <p className="mt-1 truncate text-xs text-muted">{item.lastMessageText}</p>
+                        <p className={`mt-1 truncate text-xs ${item.unreadCount > 0 ? "font-semibold text-foreground" : "text-muted"}`}>
+                          {item.lastMessageText}
+                        </p>
                       )}
                     </button>
                   );

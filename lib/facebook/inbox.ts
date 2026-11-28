@@ -152,6 +152,11 @@ export type ConversationListItem = ReturnType<typeof serializeConversation>;
  * read from the top (`limit` grows with "load more"), so the 10-second
  * refresh never skips or repeats a conversation that moved up.
  */
+/** Conversations with messages nobody has opened yet (the menu badge). */
+export function countUnreadConversations(workspaceId: string): Promise<number> {
+  return prisma.facebookConversation.count({ where: { workspaceId, unreadCount: { gt: 0 } } });
+}
+
 export async function listConversations(
   workspaceId: string,
   {

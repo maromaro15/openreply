@@ -14,13 +14,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { zernioLink } from "@/lib/zernio-links";
 import { usePathname } from "next/navigation";
-import { clientNavSections, moduleNavSections, navItems } from "@/lib/navigation";
+import { clientNavSections, MESSENGER_INBOX_PATH, moduleNavSections, navItems } from "@/lib/navigation";
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceName: string;
   client?: boolean;
+  /** Conversations with unread messages, shown on the Messenger inbox. */
+  unread?: number;
 }
 
 export default function Sidebar({
@@ -28,6 +30,7 @@ export default function Sidebar({
   onClose,
   workspaceName,
   client = false,
+  unread = 0,
 }: SidebarProps) {
   const { t } = useI18n();
   const { t: tf } = useFbI18n();
@@ -113,7 +116,7 @@ export default function Sidebar({
                     onClick={onClose}
                     aria-current={isActive ? "page" : undefined}
                     className={`
-                      block px-3 py-2.5 rounded text-sm
+                      flex items-center gap-2 px-3 py-2.5 rounded text-sm
                       ${
                         isActive
                           ? "bg-surface-hover text-foreground font-medium"
@@ -122,6 +125,14 @@ export default function Sidebar({
                     `}
                   >
                     {tf(item.label)}
+                    {item.href === MESSENGER_INBOX_PATH && unread > 0 && (
+                      <span
+                        className="ms-auto min-w-5 rounded-full bg-accent px-1.5 text-center text-[11px] font-semibold leading-5 text-white"
+                        aria-label={tf("Unread messages: {count}", { count: unread })}
+                      >
+                        {unread}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

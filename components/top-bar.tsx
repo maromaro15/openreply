@@ -32,12 +32,15 @@ const pageTitles: Record<string, StaticMessageKey> = {
 
 interface TopBarProps {
   onMenuClick: () => void;
+  /** Conversations with unread messages: shown on the Menu button, the inbox is behind it on phones. */
+  unread?: number;
   instagramUsername: string | null;
   instagramAccountCount: number;
 }
 
 export default function TopBar({
   onMenuClick,
+  unread = 0,
   instagramUsername,
   instagramAccountCount,
 }: TopBarProps) {
@@ -69,10 +72,22 @@ export default function TopBar({
       <div className="flex min-w-0 items-center gap-3 sm:gap-4">
         <button
           onClick={onMenuClick}
-          className="lg:hidden shrink-0 px-2.5 py-1.5 rounded border border-border text-sm text-muted hover:text-foreground"
-          aria-label={t("Toggle sidebar")}
+          className="relative lg:hidden shrink-0 px-2.5 py-1.5 rounded border border-border text-sm text-muted hover:text-foreground"
+          aria-label={
+            unread > 0
+              ? `${t("Toggle sidebar")} (${tf("Unread messages: {count}", { count: unread })})`
+              : t("Toggle sidebar")
+          }
         >
           {t("Menu")}
+          {unread > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -end-2 -top-2 min-w-5 rounded-full bg-accent px-1 text-center text-[11px] font-semibold leading-5 text-white"
+            >
+              {unread}
+            </span>
+          )}
         </button>
         {back === null ? null : back ? (
           <Link href={back} aria-label={tf("Back")} className={backClass}>

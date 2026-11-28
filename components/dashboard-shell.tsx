@@ -6,6 +6,7 @@ import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/top-bar";
 import { useFbI18n } from "@/lib/facebook/i18n/client";
 import { CLIENT_HOME, isClientPagePath } from "@/lib/agency/client-paths";
+import { useUnreadCount, useUnreadTitle } from "@/lib/facebook/unread";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -27,6 +28,8 @@ export default function DashboardShell({
   const { t } = useFbI18n();
   const pathname = usePathname();
   const router = useRouter();
+  const unread = useUnreadCount();
+  useUnreadTitle(unread);
   // The layout already redirects on load; this covers moving between pages in the app.
   const offLimits = client && !isClientPagePath(pathname);
   useEffect(() => {
@@ -42,11 +45,13 @@ export default function DashboardShell({
         onClose={() => setSidebarOpen(false)}
         workspaceName={workspaceName}
         client={client}
+        unread={unread}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar
           onMenuClick={() => setSidebarOpen(true)}
+          unread={unread}
           instagramUsername={instagramUsername}
           instagramAccountCount={instagramAccountCount}
         />

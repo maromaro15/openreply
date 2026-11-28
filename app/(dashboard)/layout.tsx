@@ -10,10 +10,8 @@ import { CLIENT_HOME, isClientPagePath } from "@/lib/agency/client-paths";
 import { headers } from "next/headers";
 import { PATHNAME_HEADER } from "@/lib/pathname-header";
 
-export async function generateMetadata() {
-  const { t } = await getI18n();
-  return { title: t("Amitec Reply - Open source Instagram comment-to-DM automation") };
-}
+// Short, so the unread count in front of it ("(3) Amitec Reply") stays readable in a tab.
+export const metadata = { title: "Amitec Reply" };
 
 export default async function DashboardLayout({
   children,
