@@ -150,7 +150,7 @@ function AttributeForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+          className="rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
           {busy ? t("Saving…") : submitLabel}
         </button>
@@ -263,7 +263,7 @@ export default function ProductAttributesPage() {
         <p className="max-w-2xl text-sm text-muted">
           {t("The fields every product card of this brand has, besides the name, code and price. The bot uses them to answer and compare.")}
         </p>
-        <Link href="/facebook/products" className="text-sm text-accent hover:underline">
+        <Link href="/facebook/products" className="text-sm text-foreground underline underline-offset-2">
           {t("Back to the products")}
         </Link>
       </div>

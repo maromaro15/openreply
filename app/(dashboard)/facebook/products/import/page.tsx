@@ -8,7 +8,7 @@ export default function ImportProductsPage() {
   const { t } = useFbI18n();
   return (
     <div className="space-y-4">
-      <Link href="/facebook/products" className="inline-block text-sm text-accent hover:underline">
+      <Link href="/facebook/products" className="inline-block text-sm text-foreground underline underline-offset-2">
         {t("Back to the products")}
       </Link>
       <ProductImport />

@@ -26,7 +26,7 @@ export default async function VerifyRequestPage() {
             {t("We sent you a secure sign-in link. Open it on this device to continue.")}
           </p>
           <p className="mt-6 text-sm">
-            <Link href="/login" className="text-accent hover:underline">
+            <Link href="/login" className="text-foreground underline underline-offset-2">
               {t("Back to sign in")}
             </Link>
           </p>

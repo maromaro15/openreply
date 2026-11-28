@@ -194,7 +194,7 @@ export default function SuggestionsReview() {
               "Suggestions come from three places: your past Messenger conversations, the voice interview on Telegram, and your own replies to customers after the bot handed over. Nothing is applied until a person approves it."
             )}
           </p>
-          <Link href="/facebook/knowledge" className="inline-block text-accent hover:underline">
+          <Link href="/facebook/knowledge" className="inline-block text-foreground underline underline-offset-2">
             {t("Knowledge base")}
           </Link>
         </div>
@@ -226,7 +226,7 @@ export default function SuggestionsReview() {
               type="button"
               disabled={loadingMore}
               onClick={() => void loadMore()}
-              className="w-full rounded border border-border px-3 py-2 text-sm text-accent hover:bg-surface-hover disabled:opacity-60"
+              className="w-full rounded border border-border px-3 py-2 text-sm text-foreground hover:bg-surface-hover disabled:opacity-60"
             >
               {loadingMore ? t("Loading…") : t("Load more")}
             </button>
@@ -331,7 +331,7 @@ function SuggestionCard({
         <span className="rounded-full bg-surface-hover px-2 py-0.5">{t(SOURCES[item.source])}</span>
         <span>{item.target === "product.strengths" ? t("Strengths") : t(TARGETS[item.target])}</span>
         {item.conversationId && (
-          <Link href={`/facebook/inbox?conversation=${encodeURIComponent(item.conversationId)}`} className="text-accent hover:underline">
+          <Link href={`/facebook/inbox?conversation=${encodeURIComponent(item.conversationId)}`} className="text-foreground underline underline-offset-2">
             {t("Open the conversation")}
           </Link>
         )}
@@ -398,7 +398,7 @@ function SuggestionCard({
             type="button"
             disabled={busy || tooLong || !complete}
             onClick={() => void decide("approve")}
-            className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+            className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
           >
             {busy ? t("Saving…") : t("Approve")}
           </button>

@@ -18,7 +18,7 @@ const card = "space-y-3 rounded border border-border p-4";
 const input = "block w-full rounded border border-border bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-60";
 const button =
   "rounded border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-hover disabled:opacity-60";
-const primary = "rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60";
+const primary = "rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60";
 
 const SOURCE_LABELS = {
   seed: "Default",
@@ -315,7 +315,7 @@ export default function VoiceManager({ canManage }: { canManage: boolean }) {
               { title: t("Global set (every brand)"), rows: global },
             ].map((group) => (
               <div key={group.title} className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <h3 className="label-caps text-muted">
                   {group.title} · {group.rows.length}
                 </h3>
                 {group.rows.length === 0 ? (

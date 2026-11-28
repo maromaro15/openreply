@@ -155,7 +155,7 @@ export default function KnowledgeSources() {
     return (
       <p className="text-sm text-muted">
         {t("No Page connected yet.")}{" "}
-        <Link href="/facebook/pages" className="text-accent underline">
+        <Link href="/facebook/pages" className="text-foreground underline underline-offset-2">
           {t("Facebook Pages")}
         </Link>
       </p>
@@ -186,7 +186,7 @@ export default function KnowledgeSources() {
             <p className="text-muted">{t("No product found in these posts.")}</p>
           )}
           {summary.draftsCreated > 0 && (
-            <Link href="/facebook/products?status=DRAFT" className="inline-block text-accent underline">
+            <Link href="/facebook/products?status=DRAFT" className="inline-block text-foreground underline underline-offset-2">
               {t("Review the drafts")}
             </Link>
           )}
@@ -203,7 +203,7 @@ export default function KnowledgeSources() {
         </ul>
         {summary.suggestionsFound === 0 && <p className="text-muted">{t("Nothing useful found in these conversations.")}</p>}
         {summary.suggestionsAdded > 0 && (
-          <Link href="/facebook/knowledge/suggestions" className="inline-block text-accent underline">
+          <Link href="/facebook/knowledge/suggestions" className="inline-block text-foreground underline underline-offset-2">
             {t("Review the suggestions")}
           </Link>
         )}
@@ -268,7 +268,7 @@ export default function KnowledgeSources() {
                 type="button"
                 onClick={() => void start(card.kind)}
                 disabled={running || starting === card.kind}
-                className="w-full rounded bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60 sm:w-auto"
+                className="w-full rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60 sm:w-auto"
               >
                 {running || starting === card.kind ? t("Running…") : run && run.state !== "idle" ? t("Run again") : card.start}
               </button>

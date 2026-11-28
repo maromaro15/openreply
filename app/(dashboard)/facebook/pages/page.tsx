@@ -255,7 +255,7 @@ export default function FacebookPagesPage() {
             <button
               type="submit"
               disabled={busy === "connect" || !token.trim()}
-              className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+              className="rounded bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
             >
               {busy === "connect" ? t("Checking…") : t("Connect")}
             </button>
@@ -291,7 +291,7 @@ export default function FacebookPagesPage() {
                 type="button"
                 disabled={busy === "connect" || selected.length === 0}
                 onClick={() => void connect(selected)}
-                className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+                className="rounded bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
               >
                 {t("Connect the selected Pages")}
               </button>

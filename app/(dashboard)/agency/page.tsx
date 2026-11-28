@@ -134,7 +134,7 @@ export default function AgencyPage() {
           <button
             type="submit"
             disabled={creating || !name.trim()}
-            className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+            className="rounded bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
           >
             {creating ? t("Creating…") : t("Create")}
           </button>
@@ -165,7 +165,7 @@ export default function AgencyPage() {
                   </p>
                 </div>
                 {isActive && (
-                  <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                  <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-foreground">
                     {t("Current")}
                   </span>
                 )}
@@ -215,7 +215,7 @@ export default function AgencyPage() {
                   type="button"
                   disabled={switching}
                   onClick={() => open(brand.id, "/dashboard")}
-                  className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                  className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
                 >
                   {t("Open")}
                 </button>

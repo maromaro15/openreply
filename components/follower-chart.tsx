@@ -145,7 +145,7 @@ export default function FollowerChart({
         <div className="mt-4 max-h-72 overflow-y-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left rtl:text-right text-xs uppercase tracking-wide text-zinc-500">
+              <tr className="border-b border-border text-left rtl:text-right label-caps text-muted">
                 <th className="py-2 pe-4 font-medium">{t("Date")}</th>
                 <th className="py-2 px-3 font-medium text-end">{t("Followers")}</th>
                 <th className="py-2 ps-3 font-medium text-end">{t("Change")}</th>

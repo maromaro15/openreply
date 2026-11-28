@@ -204,7 +204,7 @@ export default function InterviewPanel() {
       ) : !panel.bot ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-warning/30 bg-warning/10 p-3 text-sm">
           <p className="text-foreground">{t("The interview uses the brand's Telegram alerts bot. Save the bot first.")}</p>
-          <Link href="/facebook/alerts" className="shrink-0 rounded bg-accent px-3 py-2 font-medium text-white hover:bg-accent-hover">
+          <Link href="/facebook/alerts" className="shrink-0 rounded bg-accent px-3 py-2 font-medium text-accent-foreground hover:bg-accent-hover">
             {t("Alerts")}
           </Link>
         </div>
@@ -292,7 +292,7 @@ export default function InterviewPanel() {
               type="button"
               disabled={busy}
               onClick={() => void findChats()}
-              className="text-accent hover:underline disabled:opacity-60"
+              className="text-foreground underline underline-offset-2 disabled:opacity-60"
             >
               {t("Find recent chats")}
             </button>
@@ -350,7 +350,7 @@ export default function InterviewPanel() {
             onClick={() =>
               void call("POST", { chatId: chosenChat, ...(mode === "some" ? { productIds: selected } : {}) })
             }
-            className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+            className="rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
           >
             {busy ? t("Starting…") : t("Start the interview")}
           </button>
@@ -379,7 +379,7 @@ function Pending({ interview, t }: { interview: Interview; t: FbI18n["t"] }) {
           {t("{count} suggestions from this interview wait for review.", { count: interview.pending })}
         </p>
         {interview.pending > 0 && (
-          <Link href="/facebook/knowledge/suggestions" className="text-accent hover:underline">
+          <Link href="/facebook/knowledge/suggestions" className="text-foreground underline underline-offset-2">
             {t("Suggestions to review")}
           </Link>
         )}

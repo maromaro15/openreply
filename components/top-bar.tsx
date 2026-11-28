@@ -72,7 +72,7 @@ export default function TopBar({
       <div className="flex min-w-0 items-center gap-3 sm:gap-4">
         <button
           onClick={onMenuClick}
-          className="relative lg:hidden shrink-0 px-2.5 py-1.5 rounded border border-border text-sm text-muted hover:text-foreground"
+          className="relative lg:hidden shrink-0 px-2.5 py-1.5 rounded border border-border bg-surface text-sm text-foreground hover:bg-surface-hover"
           aria-label={
             unread > 0
               ? `${t("Toggle sidebar")} (${tf("Unread messages: {count}", { count: unread })})`
@@ -83,7 +83,7 @@ export default function TopBar({
           {unread > 0 && (
             <span
               aria-hidden="true"
-              className="absolute -end-2 -top-2 min-w-5 rounded-full bg-accent px-1 text-center text-[11px] font-semibold leading-5 text-white"
+              className="absolute -end-2 -top-2 min-w-5 rounded-full bg-accent px-1 text-center text-[11px] font-semibold leading-5 text-accent-foreground"
             >
               {unread}
             </span>
@@ -120,7 +120,7 @@ export default function TopBar({
         // Instagram account at all, and the button would only mislead.
         <a
           href="/api/instagram/connect"
-          className="shrink-0 whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded bg-accent text-white hover:bg-accent-hover"
+          className="shrink-0 whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded bg-accent text-accent-foreground hover:bg-accent-hover"
         >
           {/* Full label needs more room than a 360px header has to spare. */}
           <span className="sm:hidden">{t("Connect")}</span>

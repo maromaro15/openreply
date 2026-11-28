@@ -124,7 +124,7 @@ export default function DraftActions({
                   href={info.sourceLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-accent hover:underline"
+                  className="text-foreground underline underline-offset-2"
                 >
                   {t("Open the post")}
                 </a>
@@ -165,7 +165,7 @@ export default function DraftActions({
               type="button"
               disabled={busy !== null}
               onClick={() => void decide("approve")}
-              className={`${buttonClass} bg-accent text-white hover:bg-accent-hover`}
+              className={`${buttonClass} bg-accent text-accent-foreground hover:bg-accent-hover`}
             >
               {busy === "approve" ? t("Working…") : t("Approve")}
             </button>

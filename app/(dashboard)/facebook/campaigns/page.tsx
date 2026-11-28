@@ -52,7 +52,7 @@ const STATUS_STYLE: Record<string, string> = {
   SENT: "bg-success/10 text-success",
   FAILED: "bg-error/10 text-error",
   UNCONFIRMED: "bg-warning/10 text-warning",
-  PENDING: "bg-accent/10 text-accent",
+  PENDING: "bg-accent-soft text-foreground",
 };
 
 export default function FacebookCampaignsPage() {
@@ -145,7 +145,7 @@ export default function FacebookCampaignsPage() {
           ))}
         </div>
         {canManage && (
-          <Link href="/facebook/campaigns/new" className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover">
+          <Link href="/facebook/campaigns/new" className="rounded bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover">
             {t("New campaign")}
           </Link>
         )}

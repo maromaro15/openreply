@@ -112,7 +112,7 @@ export default function LogsPage() {
                 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
                 ${
                   statusFilter === status
-                    ? "bg-accent/15 text-accent border border-accent/20"
+                    ? "bg-accent-soft text-foreground border border-accent/20"
                     : "bg-surface text-muted border border-border hover:border-border-hover hover:text-foreground"
                 }
               `}
@@ -138,12 +138,12 @@ export default function LogsPage() {
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-border text-left rtl:text-right">
-                <th className="px-4 py-4 text-xs font-semibold text-muted uppercase tracking-wider sm:px-6">{t("Commenter")}</th>
-                <th className="px-4 py-4 text-xs font-semibold text-muted uppercase tracking-wider sm:px-6">{t("Comment")}</th>
-                <th className="px-4 py-4 text-xs font-semibold text-muted uppercase tracking-wider sm:px-6">{t("Campaign")}</th>
-                <th className="px-4 py-4 text-xs font-semibold text-muted uppercase tracking-wider sm:px-6">{t("Account")}</th>
-                <th className="px-4 py-4 text-xs font-semibold text-muted uppercase tracking-wider sm:px-6">{t("Status")}</th>
-                <th className="px-4 py-4 text-xs font-semibold text-muted uppercase tracking-wider sm:px-6">{t("Time")}</th>
+                <th className="px-4 py-4 label-caps text-muted sm:px-6">{t("Commenter")}</th>
+                <th className="px-4 py-4 label-caps text-muted sm:px-6">{t("Comment")}</th>
+                <th className="px-4 py-4 label-caps text-muted sm:px-6">{t("Campaign")}</th>
+                <th className="px-4 py-4 label-caps text-muted sm:px-6">{t("Account")}</th>
+                <th className="px-4 py-4 label-caps text-muted sm:px-6">{t("Status")}</th>
+                <th className="px-4 py-4 label-caps text-muted sm:px-6">{t("Time")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

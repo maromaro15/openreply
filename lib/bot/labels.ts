@@ -24,8 +24,8 @@ export const CUSTOMER_STATE_BADGE: Record<CustomerStateValue, string> = {
   HESITANT: "bg-warning/10 text-warning",
   READY_TO_BUY: "bg-success/10 text-success",
   ANGRY: "bg-error/10 text-error",
-  WHOLESALE: "bg-accent/10 text-accent",
-  CUSTOM_ORDER: "bg-accent/10 text-accent",
+  WHOLESALE: "bg-accent-soft text-foreground",
+  CUSTOM_ORDER: "bg-accent-soft text-foreground",
 };
 
 export const ORDER_LINE_LABELS: Record<OrderFieldValue | "PRODUCT", FbStaticKey> = {

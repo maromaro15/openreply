@@ -81,7 +81,7 @@ function PicturesNote({ pictures }: { pictures: Pictures }) {
                 <img src={card.imagePath} alt="" loading="lazy" className="block aspect-square w-full object-cover" />
                 <p dir="auto" className="truncate px-1.5 pt-1 text-[11px] font-medium text-foreground">{card.title}</p>
                 {card.subtitle && <p dir="auto" className="truncate px-1.5 text-[10px] text-muted">{card.subtitle}</p>}
-                <p dir="auto" className="mt-1 border-t border-border px-1.5 py-0.5 text-center text-[10px] text-accent">{pictures.button}</p>
+                <p dir="auto" className="mt-1 border-t border-border px-1.5 py-0.5 text-center text-[10px] text-foreground">{pictures.button}</p>
               </li>
             ))}
           </ul>
@@ -187,7 +187,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
               </div>
             ) : turn.decision.kind === "reply" ? (
               <div key={turn.id} className="flex flex-col items-end gap-1">
-                <div className="max-w-[80%] rounded-lg bg-accent px-3 py-2 text-sm text-white">
+                <div className="max-w-[80%] rounded-lg bg-foreground px-3 py-2 text-sm text-white">
                   <p dir="auto" className="whitespace-pre-wrap">{turn.decision.text}</p>
                   <p className="mt-1 text-[10px] text-white/75">{t("Bot")}</p>
                 </div>
@@ -251,7 +251,7 @@ export default function BotTester({ botEnabled, aiConfigured }: { botEnabled: bo
           type="button"
           onClick={() => void ask()}
           disabled={busy || !draft.trim()}
-          className="shrink-0 rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+          className="shrink-0 rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
           {t("Send")}
         </button>

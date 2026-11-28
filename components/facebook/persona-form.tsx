@@ -273,7 +273,7 @@ export default function PersonaForm() {
           type="button"
           onClick={() => void save()}
           disabled={busy}
-          className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+          className="rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
           {busy ? t("Saving…") : t("Save changes")}
         </button>

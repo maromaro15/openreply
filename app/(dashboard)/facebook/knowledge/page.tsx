@@ -190,7 +190,7 @@ function EntryForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+          className="rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
           {busy ? t("Saving…") : submitLabel}
         </button>
@@ -354,7 +354,7 @@ function SettingsForm({
             type="button"
             onClick={() => void save()}
             disabled={busy}
-            className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+            className="rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
           >
             {busy ? t("Saving…") : t("Save changes")}
           </button>
@@ -386,7 +386,7 @@ function SettingsForm({
               ))}
             </ul>
           )}
-          <Link href="/facebook/pages" className="mt-2 inline-block text-accent hover:underline">
+          <Link href="/facebook/pages" className="mt-2 inline-block text-foreground underline underline-offset-2">
             {t("Manage Pages")}
           </Link>
         </div>
@@ -561,7 +561,7 @@ export default function KnowledgePage() {
               <p className="text-foreground">
                 {t("New products go in the catalog: each gets a full card with its colours, codes, pictures and what helps the customer choose.")}
               </p>
-              <Link href="/facebook/products" className="shrink-0 rounded bg-accent px-3 py-2 font-medium text-white hover:bg-accent-hover">
+              <Link href="/facebook/products" className="shrink-0 rounded bg-accent px-3 py-2 font-medium text-accent-foreground hover:bg-accent-hover">
                 {t("Open the products")}
               </Link>
             </div>
@@ -623,7 +623,7 @@ export default function KnowledgePage() {
                         <div className="min-w-0 flex-1 space-y-1">
                           <p dir="auto" className="text-sm font-medium text-foreground">
                             {entry.title}
-                            {entry.price && <span className="ms-2 text-accent">{entry.price}</span>}
+                            {entry.price && <span className="ms-2 text-foreground">{entry.price}</span>}
                           </p>
                           {entry.content && (
                             <p dir="auto" className="whitespace-pre-wrap text-sm text-muted">
@@ -643,7 +643,7 @@ export default function KnowledgePage() {
                                 type="button"
                                 disabled={busy}
                                 onClick={() => void convert(entry)}
-                                className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+                                className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
                               >
                                 {t("Turn into a product card")}
                               </button>

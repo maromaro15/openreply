@@ -621,7 +621,7 @@ export default function ProductEditor({
           {template.length === 0 ? (
             <p className="text-sm text-muted">
               {t("No attributes yet. Add the ones your customers ask about (thickness, material, size…).")}{" "}
-              <Link href="/facebook/products/attributes" className="text-accent hover:underline">
+              <Link href="/facebook/products/attributes" className="text-foreground underline underline-offset-2">
                 {t("Product attributes")}
               </Link>
             </p>
@@ -1019,7 +1019,7 @@ export default function ProductEditor({
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+              className="w-full rounded bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
             >
               {saving ? t("Saving…") : productId ? t("Save changes") : t("Create the product")}
             </button>
@@ -1034,7 +1034,7 @@ export default function ProductEditor({
               {t("Delete the product")}
             </button>
           )}
-          <Link href="/facebook/products" className="block text-center text-sm text-accent hover:underline">
+          <Link href="/facebook/products" className="block text-center text-sm text-foreground underline underline-offset-2">
             {t("Back to the products")}
           </Link>
         </div>

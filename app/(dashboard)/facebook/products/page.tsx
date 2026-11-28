@@ -188,7 +188,7 @@ export default function ProductsPage({ searchParams }: { searchParams: Promise<{
           {canEdit && (
             <Link
               href="/facebook/products/new"
-              className="rounded bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+              className="rounded bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
             >
               {t("New product")}
             </Link>
@@ -256,7 +256,7 @@ export default function ProductsPage({ searchParams }: { searchParams: Promise<{
             <span>
               {t("No products yet.")}{" "}
               {canEdit && (
-                <Link href="/facebook/products/new" className="text-accent hover:underline">
+                <Link href="/facebook/products/new" className="text-foreground underline underline-offset-2">
                   {t("Add the first one")}
                 </Link>
               )}
@@ -304,7 +304,7 @@ export default function ProductsPage({ searchParams }: { searchParams: Promise<{
                       type="button"
                       disabled={busy === product.id}
                       onClick={() => void setStatus(product, "ACTIVE")}
-                      className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+                      className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
                     >
                       {t("Approve")}
                     </button>

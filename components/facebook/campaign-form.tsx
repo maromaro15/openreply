@@ -234,7 +234,7 @@ export default function CampaignForm({
     return (
       <div className="panel space-y-3 rounded p-6 text-sm">
         <p className="text-foreground">{t("Connect a Facebook Page before creating a campaign.")}</p>
-        <a href="/facebook/pages" className="inline-block rounded bg-accent px-4 py-2 font-medium text-white hover:bg-accent-hover">
+        <a href="/facebook/pages" className="inline-block rounded bg-accent px-4 py-2 font-medium text-accent-foreground hover:bg-accent-hover">
           {t("Connect a Page")}
         </a>
       </div>
@@ -409,12 +409,12 @@ export default function CampaignForm({
 
       <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
         <div className="panel space-y-3 rounded p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("Preview")}</p>
+          <p className="label-caps text-muted">{t("Preview")}</p>
           <div className="space-y-2 rounded-lg border border-border bg-background p-3">
             <p className="whitespace-pre-wrap break-words text-sm text-foreground" dir="auto">
               {previewText}
             </p>
-            <div className="rounded border border-border py-1.5 text-center text-sm font-medium text-accent" dir="auto">
+            <div className="rounded border border-border py-1.5 text-center text-sm font-medium text-foreground" dir="auto">
               {values.buttonLabel || "…"}
             </div>
           </div>
@@ -429,7 +429,7 @@ export default function CampaignForm({
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+            className="w-full rounded bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
           >
             {saving ? t("Saving…") : campaignId ? t("Save changes") : t("Create campaign")}
           </button>

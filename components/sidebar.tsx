@@ -62,9 +62,10 @@ export default function Sidebar({
         >
           <Link
             href={client ? "/facebook/inbox" : "/dashboard"}
-            className="text-base font-semibold"
+            className="text-lg font-semibold tracking-tight"
           >
-            Amitec Reply
+            {/* The one accent word of the app, in Instrument Serif italic. */}
+            Amitec <span className="font-accent text-xl font-normal italic">Reply</span>
           </Link>
         </div>
 
@@ -83,7 +84,7 @@ export default function Sidebar({
                   block px-3 py-2.5 rounded text-sm
                   ${
                     isActive
-                      ? "bg-surface-hover text-foreground font-medium"
+                      ? "relative bg-accent-soft font-semibold text-foreground before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-accent"
                       : "text-muted hover:text-foreground hover:bg-surface-hover"
                   }
                 `}
@@ -102,7 +103,7 @@ export default function Sidebar({
                   : "mt-4 space-y-1 border-t border-border pt-4"
               }
             >
-              <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              <p className="label-caps px-3 pb-1 text-muted">
                 {tf(section.title)}
               </p>
               {section.items.map((item) => {
@@ -119,7 +120,7 @@ export default function Sidebar({
                       flex items-center gap-2 px-3 py-2.5 rounded text-sm
                       ${
                         isActive
-                          ? "bg-surface-hover text-foreground font-medium"
+                          ? "relative bg-accent-soft font-semibold text-foreground before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-accent"
                           : "text-muted hover:text-foreground hover:bg-surface-hover"
                       }
                     `}
@@ -127,7 +128,7 @@ export default function Sidebar({
                     {tf(item.label)}
                     {item.href === MESSENGER_INBOX_PATH && unread > 0 && (
                       <span
-                        className="ms-auto min-w-5 rounded-full bg-accent px-1.5 text-center text-[11px] font-semibold leading-5 text-white"
+                        className="ms-auto min-w-5 rounded-full bg-accent px-1.5 text-center text-[11px] font-semibold leading-5 text-accent-foreground"
                         aria-label={tf("Unread messages: {count}", { count: unread })}
                       >
                         {unread}

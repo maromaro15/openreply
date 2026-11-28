@@ -34,7 +34,7 @@ export const HANDOFF_CATEGORY_LABELS = {
 export const HANDOFF_CATEGORY_BADGE: Record<HandoffCategory, string> = {
   ORDER_READY: "bg-success/15 text-success font-semibold",
   WHOLESALE_ORDER: "bg-success/10 text-success",
-  CUSTOM_ORDER: "bg-accent/10 text-accent",
+  CUSTOM_ORDER: "bg-accent-soft text-foreground",
   COMPLAINT: "bg-error/10 text-error",
   NOT_IN_KB: "bg-warning/10 text-warning",
   AUDIO_FAILED: "bg-surface-hover text-muted",

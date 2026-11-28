@@ -81,7 +81,7 @@ const card = "space-y-3 rounded border border-border p-4";
 const input = "block w-full rounded border border-border bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-60";
 const button =
   "rounded border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-hover disabled:opacity-60";
-const primary = "rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60";
+const primary = "rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60";
 
 async function send(url: string, method: string, body?: unknown) {
   const response = await fetch(url, {
@@ -460,7 +460,7 @@ export default function AlertsPage() {
                   <p className="text-sm font-medium text-foreground" dir="auto">
                     {recipient.label}
                     {recipient.isDefault && (
-                      <span className="ms-2 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] text-accent">{t("Default")}</span>
+                      <span className="ms-2 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-foreground">{t("Default")}</span>
                     )}
                     {!recipient.isActive && (
                       <span className="ms-2 rounded-full bg-surface-hover px-2 py-0.5 text-[11px] text-muted">{t("Inactive")}</span>
@@ -599,7 +599,7 @@ export default function AlertsPage() {
                     {delivery.status === "SENT" ? t("Sent") : delivery.status === "FAILED" ? t("Failed") : t("Pending")}
                   </span>
                   {delivery.conversationId && (
-                    <Link href={`/facebook/inbox?conversation=${delivery.conversationId}`} className="text-xs text-accent hover:underline">
+                    <Link href={`/facebook/inbox?conversation=${delivery.conversationId}`} className="text-xs text-foreground underline underline-offset-2">
                       {t("Open the conversation")}
                     </Link>
                   )}

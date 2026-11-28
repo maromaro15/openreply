@@ -171,7 +171,7 @@ export default function VoiceFromMessage({
           type="button"
           disabled={saving || !ready}
           onClick={() => void save()}
-          className="rounded bg-accent px-3 py-1.5 font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+          className="rounded bg-accent px-3 py-1.5 font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
           {saving ? t("Saving…") : t("Save")}
         </button>

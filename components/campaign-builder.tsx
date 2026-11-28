@@ -624,7 +624,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             type="button"
             onClick={() => handleSubmit(mode === "new" ? true : isActive)}
             disabled={saving}
-            className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+            className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
           >
             {saving ? t("Saving…") : mode === "new" ? t("Go Live") : t("Save changes")}
           </button>
@@ -802,7 +802,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                   onClick={() =>
                     setPublicReplyMessages((prev) => [...prev, ""])
                   }
-                  className="text-xs font-medium text-accent hover:underline"
+                  className="text-xs font-medium text-foreground underline underline-offset-2"
                 >
                   {t("+ Add another reply")}
                 </button>

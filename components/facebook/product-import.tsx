@@ -96,7 +96,7 @@ function Step({ number, title, children }: { number: number; title: string; chil
   return (
     <section className="space-y-3 rounded border border-border p-4">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs text-white">{number}</span>
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs text-accent-foreground">{number}</span>
         {title}
       </h2>
       {children}
@@ -264,7 +264,7 @@ export default function ProductImport() {
           <a
             href="/api/catalog/import/template?format=xlsx"
             download
-            className="rounded bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+            className="rounded bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
           >
             {t("Download Excel (.xlsx)")}
           </a>
@@ -360,7 +360,7 @@ export default function ProductImport() {
           type="button"
           disabled={!file || locked}
           onClick={() => void runPreview()}
-          className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+          className="rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
           {busy === "preview" ? t("Reading the file…") : t("Preview")}
         </button>
@@ -523,7 +523,7 @@ export default function ProductImport() {
               type="button"
               disabled={!canConfirm || locked || finished || preview.summary.create + preview.summary.update === 0}
               onClick={() => void confirm()}
-              className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+              className="rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
             >
               {busy === "confirm"
                 ? t("Importing…")
@@ -601,7 +601,7 @@ export default function ProductImport() {
             <ul className="divide-y divide-border rounded border border-border">
               {outcome.products.map((product) => (
                 <li key={product.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-2 text-sm">
-                  <Link href={`/facebook/products/${product.id}`} className="min-w-0 flex-1 truncate text-accent hover:underline" dir="auto">
+                  <Link href={`/facebook/products/${product.id}`} className="min-w-0 flex-1 truncate text-foreground underline underline-offset-2" dir="auto">
                     {product.name}
                   </Link>
                   {product.code && (
@@ -615,7 +615,7 @@ export default function ProductImport() {
             </ul>
           )}
           {outcome.moreProducts > 0 && <p className="text-xs text-muted">{t("And {count} more.", { count: outcome.moreProducts })}</p>}
-          <Link href="/facebook/products" className="inline-block text-sm text-accent hover:underline">
+          <Link href="/facebook/products" className="inline-block text-sm text-foreground underline underline-offset-2">
             {t("Back to the products")}
           </Link>
         </section>

@@ -33,7 +33,7 @@ export default function NewProductPage() {
     return (
       <div className="space-y-2 text-sm">
         <p className="text-muted">{t("Only owners and admins can change the products.")}</p>
-        <Link href="/facebook/products" className="text-accent hover:underline">
+        <Link href="/facebook/products" className="text-foreground underline underline-offset-2">
           {t("Back to the products")}
         </Link>
       </div>

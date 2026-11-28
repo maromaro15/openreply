@@ -107,7 +107,7 @@ export default function ProductSelect({
       {!failed && options.length === 0 && !value && (
         <p className="text-xs text-muted">
           {t("No active products yet.")}{" "}
-          <Link href="/facebook/products" className="text-accent hover:underline">
+          <Link href="/facebook/products" className="text-foreground underline underline-offset-2">
             {t("Add products")}
           </Link>
         </p>

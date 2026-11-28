@@ -106,7 +106,7 @@ function ModeBadge({ mode, t }: { mode: "BOT" | "HUMAN"; t: FbI18n["t"] }) {
   return (
     <span
       className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${
-        mode === "BOT" ? "border-accent/40 text-accent" : "border-border text-muted"
+        mode === "BOT" ? "border-accent/40 bg-accent-soft text-foreground" : "border-border text-muted"
       }`}
     >
       {mode === "BOT" ? t("Bot") : t("Person")}
@@ -159,7 +159,7 @@ function MessageBubble({ message, fb, locale, now }: { message: ThreadMessage; f
           outbound
             ? message.origin === "EXTERNAL"
               ? "border border-border bg-surface-hover text-foreground"
-              : "bg-accent text-white"
+              : "bg-foreground text-white"
             : "border border-border bg-surface text-foreground"
         } ${problem ? "ring-2 ring-error/60" : ""}`}
       >
@@ -172,7 +172,7 @@ function MessageBubble({ message, fb, locale, now }: { message: ThreadMessage; f
                 href={message.attachmentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`underline ${outbound && message.origin !== "EXTERNAL" ? "text-white" : "text-accent"}`}
+                className={`underline ${outbound && message.origin !== "EXTERNAL" ? "text-white" : "text-foreground"}`}
               >
                 {t("Open")}
               </a>
@@ -364,7 +364,7 @@ function LearnFromReply({ message, question, t }: { message: ThreadMessage; ques
           type="button"
           disabled={saving || !q.trim() || !a.trim()}
           onClick={() => void save()}
-          className="rounded bg-accent px-3 py-1.5 font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+          className="rounded bg-accent px-3 py-1.5 font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
           {saving ? t("Saving…") : t("Save")}
         </button>
@@ -692,7 +692,7 @@ export default function MessengerInbox({
         </p>
       )}
 
-      <div className="grid h-[calc(100dvh-10rem)] grid-cols-1 overflow-hidden rounded border border-border md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr]">
+      <div className="grid h-[calc(100dvh-10rem)] grid-cols-1 overflow-hidden rounded-lg border border-border bg-surface shadow-card md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr]">
         {/* The list: full width on mobile until a conversation is open. */}
         <div className={`min-h-0 flex-col border-border md:flex md:border-e ${activeId ? "hidden" : "flex"}`}>
           <div className="shrink-0 space-y-2 border-b border-border p-3">
@@ -709,7 +709,7 @@ export default function MessengerInbox({
                   }}
                   className={`rounded px-2 py-1 text-xs font-medium ${
                     filter === option.value
-                      ? "bg-surface-hover text-foreground"
+                      ? "bg-accent-soft text-foreground"
                       : "text-muted hover:bg-surface-hover hover:text-foreground"
                   }`}
                 >
@@ -770,7 +770,7 @@ export default function MessengerInbox({
             ) : pages && pages.length === 0 && list!.conversations.length === 0 ? (
               <div className="space-y-2 px-4 py-6 text-sm text-muted">
                 <p>{t("Connect a Facebook Page to receive its Messenger conversations here.")}</p>
-                <Link href="/facebook/pages" className="font-medium text-accent hover:underline">
+                <Link href="/facebook/pages" className="font-medium text-foreground underline underline-offset-2">
                   {t("Connect a Page")}
                 </Link>
               </div>
@@ -787,7 +787,7 @@ export default function MessengerInbox({
                       onClick={() => open(item.id)}
                       aria-current={isActive ? "true" : undefined}
                       className={`block w-full border-b border-border px-4 py-3 text-start ${
-                        isActive ? "bg-surface-hover" : "hover:bg-surface-hover"
+                        isActive ? "bg-accent-soft" : "hover:bg-surface-hover"
                       }`}
                     >
                       <div className="flex items-baseline justify-between gap-2">
@@ -819,7 +819,7 @@ export default function MessengerInbox({
                         )}
                         {item.unreadCount > 0 && (
                           <span
-                            className="ms-auto rounded-full bg-accent px-1.5 text-[10px] font-semibold text-white"
+                            className="ms-auto rounded-full bg-accent px-1.5 text-[10px] font-semibold text-accent-foreground"
                             aria-label={t("Unread messages: {count}", { count: item.unreadCount })}
                           >
                             {item.unreadCount}
@@ -838,7 +838,7 @@ export default function MessengerInbox({
                   <button
                     type="button"
                     onClick={() => setLimit((current) => current + PAGE_SIZE)}
-                    className="block w-full px-4 py-3 text-center text-sm font-medium text-accent hover:bg-surface-hover"
+                    className="block w-full px-4 py-3 text-center text-sm font-medium text-foreground hover:bg-surface-hover"
                   >
                     {t("Load more")}
                   </button>
@@ -857,7 +857,7 @@ export default function MessengerInbox({
           ) : threadMissing ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-sm text-muted">
               <p>{t("Conversation not found.")}</p>
-              <button type="button" onClick={() => setActiveId(null)} className="text-accent hover:underline">
+              <button type="button" onClick={() => setActiveId(null)} className="text-foreground underline underline-offset-2">
                 {t("Back")}
               </button>
             </div>
@@ -891,7 +891,7 @@ export default function MessengerInbox({
                         type="button"
                         disabled={acting}
                         onClick={() => void act("take_over")}
-                        className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+                        className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
                       >
                         {t("Take over")}
                       </button>
@@ -1021,7 +1021,7 @@ export default function MessengerInbox({
                         type="button"
                         disabled={sending || !draft.trim()}
                         onClick={() => void send()}
-                        className="shrink-0 rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+                        className="shrink-0 rounded bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
                       >
                         {sending ? t("Sending…") : t("Send")}
                       </button>

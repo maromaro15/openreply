@@ -305,7 +305,7 @@ export default function CampaignsPage() {
           </Link>
           <Link
             href="/campaigns/new"
-            className="flex-1 rounded bg-accent px-4 py-2 text-center text-sm font-medium text-white hover:bg-accent-hover sm:flex-none"
+            className="flex-1 rounded bg-accent px-4 py-2 text-center text-sm font-medium text-accent-foreground hover:bg-accent-hover sm:flex-none"
           >
             {t("New Campaign")}
           </Link>
@@ -349,7 +349,7 @@ export default function CampaignsPage() {
           </p>
           <Link
             href="/campaigns/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-accent text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-accent text-sm font-semibold text-accent-foreground hover:bg-accent-hover transition-colors"
           >
             {t("Create Campaign")}
           </Link>
@@ -438,12 +438,12 @@ export default function CampaignsPage() {
                     </span>
                   )}
                   {auto.requireFollow && (
-                    <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                    <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-foreground">
                       {t("Follow gate")}
                     </span>
                   )}
                   {auto.trackedLinks.length >= 2 && (
-                    <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                    <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-foreground">
                       {t("2 links")}
                     </span>
                   )}
@@ -454,7 +454,7 @@ export default function CampaignsPage() {
                   {auto.keywords.map((kw) => (
                     <span
                       key={kw}
-                      className="px-2 py-0.5 rounded-md bg-accent/10 text-accent text-xs font-medium border border-accent/10"
+                      className="px-2 py-0.5 rounded-md bg-accent-soft text-foreground text-xs font-medium border border-accent/10"
                     >
                       {kw}
                     </span>
