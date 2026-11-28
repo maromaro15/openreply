@@ -34,7 +34,7 @@ export default async function LoginPage({
     return (
       <div className={`${siteClass} auth`}>
         <Link href="/" className="auth-back body-5">
-          <CaretLeftIcon /> Back to home
+          <CaretLeftIcon /> {t("Back to home")}
         </Link>
         <div className="auth-card">
           <div>
@@ -77,7 +77,7 @@ export default async function LoginPage({
   return (
     <div className={`${siteClass} auth`}>
       <Link href="/" className="auth-back body-5">
-        <CaretLeftIcon /> Back to home
+        <CaretLeftIcon /> {t("Back to home")}
       </Link>
       <div style={{ width: "100%", maxWidth: 416 }}>
         <DemoNotice variant="panel" />
