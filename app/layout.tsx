@@ -1,9 +1,23 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { Google_Sans, Google_Sans_Code, Instrument_Serif, Noto_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 
+// Self-hosted at build time: the browser never calls Google. The CSS
+// variables feed the font tokens in globals.css.
+const googleSans = Google_Sans({ subsets: ["latin", "latin-ext"], variable: "--font-google-sans" });
+const googleSansCode = Google_Sans_Code({ subsets: ["latin"], variable: "--font-google-sans-code" });
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: "italic",
+  variable: "--font-instrument-serif",
+});
+const notoSansArabic = Noto_Sans_Arabic({ subsets: ["arabic"], variable: "--font-noto-arabic" });
+const fontVariables = [googleSans, googleSansCode, instrumentSerif, notoSansArabic].map((font) => font.variable).join(" ");
+
 export const metadata: Metadata = {
-  title: "OpenReply - Open source Instagram comment-to-DM automation",
+  title: "Amitec Reply - Open source Instagram comment-to-DM automation",
   description:
     "A free, self-hosted ManyChat alternative. Send an Instagram DM automatically when someone comments a keyword on your post or reel, using the official Meta API.",
   keywords: [
@@ -16,7 +30,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "OpenReply",
+    title: "Amitec Reply",
     statusBarStyle: "black-translucent",
   },
   icons: {
@@ -29,7 +43,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#18181b",
+  themeColor: "#f6f4f1", // bone, the page colour (app/globals.css)
   width: "device-width",
   initialScale: 1,
   // Installed on iOS the app owns the full screen, notch included; the safe
@@ -43,7 +57,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full dark">
+    <html lang="en" className={`${fontVariables} h-full dark`}>
       <body
         className="min-h-full bg-background text-foreground font-sans antialiased"
         // Clears the home indicator when installed; 0 everywhere else.

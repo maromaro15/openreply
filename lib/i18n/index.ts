@@ -1,10 +1,11 @@
+import arCatalog from "./ar.json";
 import esCatalog from "./es.json";
 import ptBRCatalog from "./pt-BR.json";
 import ruCatalog from "./ru.json";
 import zhTW from "./zh-TW.json";
 
 export const LOCALE_COOKIE = "openreply-locale";
-export type Locale = "en" | "zh-TW" | "pt-BR" | "ru" | "es";
+export type Locale = "en" | "zh-TW" | "pt-BR" | "ru" | "es" | "ar";
 export type MessageKey = keyof typeof zhTW;
 
 // Every catalog must translate exactly the same English keys. `satisfies` makes
@@ -12,15 +13,17 @@ export type MessageKey = keyof typeof zhTW;
 const ptBR = ptBRCatalog satisfies Record<MessageKey, string>;
 const ru = ruCatalog satisfies Record<MessageKey, string>;
 const es = esCatalog satisfies Record<MessageKey, string>;
+const ar = arCatalog satisfies Record<MessageKey, string>;
 const catalogs: Record<Exclude<Locale, "en">, Record<MessageKey, string>> = {
   "zh-TW": zhTW,
   "pt-BR": ptBR,
   ru,
   es,
+  ar,
 };
 
 export function isLocale(value: unknown): value is Locale {
-  return value === "en" || value === "zh-TW" || value === "pt-BR" || value === "ru" || value === "es";
+  return value === "en" || value === "zh-TW" || value === "pt-BR" || value === "ru" || value === "es" || value === "ar";
 }
 
 export function resolveLocale(value: unknown): Locale {
@@ -51,6 +54,7 @@ const labels: Record<string, StaticMessageKey> = {
   OWNER: "Owner",
   ADMIN: "Admin",
   MEMBER: "Member",
+  VIEWER: "Viewer (view only)",
   all: "All",
   active: "Active",
   paused: "Paused",

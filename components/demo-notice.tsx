@@ -71,7 +71,7 @@ export function DemoNotice({ variant }: { variant: "banner" | "panel" }) {
     return (
       <div className="relative border-b border-orange-200 bg-orange-50">
         <p className="mx-auto w-full max-w-6xl px-10 py-2 text-center text-xs leading-5 text-zinc-700 sm:px-14 sm:text-sm">
-          <span className="font-bold text-zinc-900">{host}</span> {t("is a demo. OpenReply is self-hosted — signing in here will not send DMs for your account.")}{" "}
+          <span className="font-bold text-zinc-900">{host}</span> {t("is a demo. Amitec Reply is self-hosted — signing in here will not send DMs for your account.")}{" "}
           <a
             href={SETUP_DOCS_URL}
             target="_blank"
@@ -86,7 +86,7 @@ export function DemoNotice({ variant }: { variant: "banner" | "panel" }) {
           type="button"
           onClick={dismiss}
           aria-label={t("Dismiss demo notice")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-zinc-500 transition hover:text-zinc-900 sm:right-4"
+          className="absolute end-2 top-1/2 -translate-y-1/2 p-2 text-zinc-500 transition hover:text-zinc-900 sm:end-4"
         >
           <DismissIcon />
         </button>
@@ -95,10 +95,10 @@ export function DemoNotice({ variant }: { variant: "banner" | "panel" }) {
   }
 
   return (
-    <div className="relative mb-5 rounded border border-warning/30 bg-warning/10 px-4 py-3 pr-10">
+    <div className="relative mb-5 rounded border border-warning/30 bg-warning/10 px-4 py-3 pe-10">
       <p className="text-sm leading-6 text-foreground">
         <span className="font-semibold">{host} {t("is a demo instance.")}</span>{" "}
-        {t("Signing in here will not send DMs for your Instagram account. OpenReply is self-hosted, so it only works on a deployment you run yourself, with your own Meta app and your own domain.")}{" "}
+        {t("Signing in here will not send DMs for your Instagram account. Amitec Reply is self-hosted, so it only works on a deployment you run yourself, with your own Meta app and your own domain.")}{" "}
         <a
           href={SETUP_DOCS_URL}
           target="_blank"
@@ -113,7 +113,7 @@ export function DemoNotice({ variant }: { variant: "banner" | "panel" }) {
         type="button"
         onClick={dismiss}
         aria-label={t("Dismiss demo notice")}
-        className="absolute right-1 top-1 p-2 text-muted transition hover:text-foreground"
+        className="absolute end-1 top-1 p-2 text-muted transition hover:text-foreground"
       >
         <DismissIcon />
       </button>

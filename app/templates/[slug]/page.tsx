@@ -27,7 +27,7 @@ export async function generateMetadata({
 
   if (!template) {
     return {
-      title: "Template Not Found - OpenReply",
+      title: "Template Not Found - Amitec Reply",
     };
   }
 
@@ -141,7 +141,7 @@ export default async function TemplateDetailPage({ params }: TemplatePageProps) 
               </Reveal>
             </div>
             <Reveal className="card">
-              <h2 className="heading-6">Copy this campaign into OpenReply</h2>
+              <h2 className="heading-6">Copy this campaign into Amitec Reply</h2>
               <p className="body-6">
                 Sign in, connect Instagram, pick a post or reel, and the
                 template copy will be ready for your campaign draft.

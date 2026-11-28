@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# OpenReply
+# Amitec Reply
 
 Open-sourced ManyChat for Instagram comment-to-DM automation.
 
@@ -12,13 +12,13 @@ Open-sourced ManyChat for Instagram comment-to-DM automation.
 
 </div>
 
-Someone comments `LINK` on your reel, and OpenReply queues a DM with your link. It watches the comments on your Instagram posts, and when one matches a keyword you set, it sends that person a private reply through the official Meta API. You can also post a public reply under the comment at the same time.
+Someone comments `LINK` on your reel, and Amitec Reply queues a DM with your link. It watches the comments on your Instagram posts, and when one matches a keyword you set, it sends that person a private reply through the official Meta API. You can also post a public reply under the comment at the same time.
 
-OpenReply is free, MIT-licensed software running on your own infrastructure, with no software seat limits or plan caps. Hosting and optional provider costs are separate.
+Amitec Reply is free, MIT-licensed software running on your own infrastructure, with no software seat limits or plan caps. Hosting and optional provider costs are separate.
 
-> **Supported by [Zernio](https://zernio.com/?utm_source=openreply&utm_medium=sponsorship&utm_campaign=openreply-integration&utm_content=readme-sponsor).** An optional paid Instagram connection provider that lets you avoid creating and reviewing your own Meta app. OpenReply still runs your campaigns, queues, logs, and inbox on your infrastructure. [Connect with Zernio](docs/zernio.md), or keep using your own Meta app.
+> **Supported by [Zernio](https://zernio.com/?utm_source=openreply&utm_medium=sponsorship&utm_campaign=openreply-integration&utm_content=readme-sponsor).** An optional paid Instagram connection provider that lets you avoid creating and reviewing your own Meta app. Amitec Reply still runs your campaigns, queues, logs, and inbox on your infrastructure. [Connect with Zernio](docs/zernio.md), or keep using your own Meta app.
 
-> **OpenReply is self-hosted. You have to deploy your own copy.**
+> **Amitec Reply is self-hosted. You have to deploy your own copy.**
 >
 > [openreply.diwen.dev](https://openreply.diwen.dev) is a demo of the dashboard, not a service you can sign up for. Creating an account there will never send a DM for you, and there is no hosted plan to upgrade to.
 >
@@ -28,9 +28,9 @@ OpenReply is free, MIT-licensed software running on your own infrastructure, wit
 
 ## Why this exists
 
-Comment-to-DM is one feature, but every tool that offers it wants a recurring subscription for it. OpenReply makes that workflow available as software you can inspect, modify, and host yourself.
+Comment-to-DM is one feature, but every tool that offers it wants a recurring subscription for it. Amitec Reply makes that workflow available as software you can inspect, modify, and host yourself.
 
-OpenReply is built around Meta's official Instagram private replies. It does not scrape, it does not automate a browser, and it never asks for an Instagram password. Instagram's policies, permissions, messaging windows, and rate limits still apply.
+Amitec Reply is built around Meta's official Instagram private replies. It does not scrape, it does not automate a browser, and it never asks for an Instagram password. Instagram's policies, permissions, messaging windows, and rate limits still apply.
 
 ## Features
 
@@ -39,13 +39,14 @@ OpenReply is built around Meta's official Instagram private replies. It does not
 - DM and Story reply triggers. The same keywords can also fire on an inbound DM, which covers text replies to your Stories, since Instagram delivers those as DMs. That makes `Reply LINK to this Story` work with no post involved. Turn it on per campaign, and subscribe to the `messages` webhook field if you use your own Meta app. Zernio webhook registration is automatic.
 - Tracked links. Swap a link for a tracked redirect and see clicks and CTR per campaign.
 - Two link buttons. Send up to two tappable link buttons in one DM, each a separate tracked link with its own click stats.
-- Follow gate. Optionally require a follow before you hand over the link. The DM asks the commenter to follow and tap a button; on tap, OpenReply checks Meta's `is_user_follow_business` flag and only sends the link once they follow, re-prompting until then. It fails open (sends the link anyway) when Instagram does not return follow status, so a real follower is never trapped.
+- Follow gate. Optionally require a follow before you hand over the link. The DM asks the commenter to follow and tap a button; on tap, Amitec Reply checks Meta's `is_user_follow_business` flag and only sends the link once they follow, re-prompting until then. It fails open (sends the link anyway) when Instagram does not return follow status, so a real follower is never trapped.
 - Personalization. Use `{username}` in your message to greet the commenter by name.
 - Per-account rate limiting. Stays under Meta's documented cap of 750 private replies per hour, and queues the overflow instead of dropping it.
 - Multiple Instagram accounts. Connect several professional accounts under one workspace, each with its own limits.
 - Workspaces and roles. Owner, admin, and member roles with invite links, useful if you run this for clients.
 - Campaign templates. Start from a preset instead of a blank form.
-- English, Traditional Chinese, Brazilian Portuguese, Russian and Spanish interface, with a saved language preference. See [interface languages](docs/localization.md).
+- English, Traditional Chinese, Brazilian Portuguese, Russian, Spanish and Arabic (right to left) interface, with a saved language preference. See [interface languages](docs/localization.md).
+- Facebook Pages and Messenger for several brands (inbox, AI bot, product catalog, alerts), with an Arabic interface. Setup guide in Arabic: [docs/ar/facebook-messenger-guide.md](docs/ar/facebook-messenger-guide.md).
 - Read-only API and MCP for campaign settings, destination links and aggregate stats, with workspace-scoped revocable keys (30/60/90 days). See [integrations](docs/integrations.md).
 - Inbox. Read your Instagram DM conversations and reply from the dashboard, inside Meta's 24-hour messaging window. Conversations are cached, so repeat visits load quickly.
 - DM logs. Every send, skip, and failure is logged with a reason.
@@ -54,8 +55,8 @@ OpenReply is built around Meta's official Instagram private replies. It does not
 ## How it works
 
 1. Someone comments on your Instagram post or reel, or DMs you, or replies to your Story.
-2. Your connection provider (direct Meta or Zernio) delivers the event to your OpenReply instance.
-3. OpenReply checks the text against your active campaigns.
+2. Your connection provider (direct Meta or Zernio) delivers the event to your Amitec Reply instance.
+3. Amitec Reply checks the text against your active campaigns.
 4. On a keyword match, it queues a job.
 5. A background worker sends the private reply, and the public reply if you enabled one.
 
@@ -63,24 +64,24 @@ The web app receives the webhook and serves the dashboard. A separate worker pro
 
 ## Quick start
 
-1. Choose your Instagram connection. [Zernio](docs/zernio.md) is recommended if you want to avoid setting up your own Meta app. It is a paid service and sponsor, not a hosted OpenReply plan. Or follow the existing [direct Meta setup](docs/setup.md#the-meta-app).
+1. Choose your Instagram connection. [Zernio](docs/zernio.md) is recommended if you want to avoid setting up your own Meta app. It is a paid service and sponsor, not a hosted Amitec Reply plan. Or follow the existing [direct Meta setup](docs/setup.md#the-meta-app).
 2. Deploy the app and worker. Both paths need PostgreSQL, Redis, a public HTTPS URL, and email delivery for magic-link sign-in.
 3. Connect an Instagram Business or Creator account in Settings, create a campaign, and test a keyword comment from another account.
 
 Read [docs/setup.md](docs/setup.md) for the complete walkthrough, including a provider-aware AI assistant prompt. Existing accounts are never automatically migrated. Check [Zernio's feature limits](docs/zernio.md#feature-availability) before choosing.
 
-Moving from ManyChat or another DM tool? Disconnect it from the Instagram account and give OpenReply control of conversations in Meta Business Suite, or button taps in DMs will fail with "not the thread owner". See [Migrating from ManyChat](docs/setup.md#migrating-from-manychat-or-another-dm-tool-give-openreply-control-of-conversations).
+Moving from ManyChat or another DM tool? Disconnect it from the Instagram account and give Amitec Reply control of conversations in Meta Business Suite, or button taps in DMs will fail with "not the thread owner". See [Migrating from ManyChat](docs/setup.md#migrating-from-manychat-or-another-dm-tool-give-openreply-control-of-conversations).
 
 ### Deploy the web app
 
 The button creates your web deployment. You still need to configure the database, Redis, email delivery, and a separate always-on worker.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/diwenne/openreply)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/maromaro15/openreply)
 
 ### Run it locally
 
 ```bash
-git clone https://github.com/diwenne/openreply.git
+git clone https://github.com/maromaro15/openreply.git
 cd openreply
 npm install
 cp .env.example .env      # then fill in the values, see docs/setup.md
@@ -118,7 +119,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 ## Credits
 
-Built and maintained by Diwen Huang.
+Amitec Reply is built on [OpenReply](https://github.com/diwenne/openreply), the free and open source project by Diwen Huang, released under the MIT license (see [LICENSE](LICENSE)). OpenReply is not affiliated with Amitec Reply and does not endorse it.
+
+OpenReply is built and maintained by Diwen Huang.
 
 - GitHub: [@diwenne](https://github.com/diwenne)
 - Website: [diwenhuang.ca](https://diwenhuang.ca)
@@ -139,7 +142,7 @@ OpenReply was initially forked from [instagram-comment-to-dm](https://github.com
 
 ## Star the repo
 
-If OpenReply is useful to you, star it. That helps the next person looking for a free way to do this find the project.
+If Amitec Reply is useful to you, star it. That helps the next person looking for a free way to do this find the project.
 
 ## License
 

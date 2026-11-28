@@ -87,6 +87,18 @@ model Workspace {
   operationalEvents OperationalEvent[]
   serviceKeys       ServiceKey[]
 
+  // Facebook Pages / Messenger, bot knowledge base and handoff alerts.
+  // Relation fields only: Prisma needs both sides of a relation, and these
+  // add no column to the Workspace table.
+  facebookPages    FacebookPage[]
+  botSettings      BotSettings?
+  knowledgeEntries KnowledgeEntry[]
+  alertSettings    AlertSettings?
+  alertRecipients  AlertRecipient[]
+  // Brand voice (lib/voice): the brand's example exchanges and corrections.
+  voiceExamples    VoiceExample[]
+  voiceCorrections VoiceCorrection[]
+
   @@index([ownerId])
 }
 
@@ -379,6 +391,8 @@ enum WorkspaceRole {
   OWNER
   ADMIN
   MEMBER
+  /// Sees the brand's campaigns, conversations and statistics; changes nothing.
+  VIEWER
 }
 
 enum WorkspaceInvitationStatus {
@@ -444,4 +458,803 @@ model ZernioConnection {
 model PostbackDelivery {
   id String @id
   createdAt DateTime @default(now())
+}
+
+// ─── Facebook Pages / Messenger ─────────────────────────────────────────────
+//
+// A separate channel next to Instagram. None of these tables is read by the
+// Instagram code paths, and none of the Instagram tables is changed by them.
+
+enum FacebookPageStatus {
+  ACTIVE
+  TOKEN_INVALID
+  DISCONNECTED
+}
+
+/// A Facebook Page connected with a long-lived Page access token.
+model FacebookPage {
+  id                  String             @id @default(cuid())
+  workspaceId         String
+  /// The Page ID, which is entry.id in webhooks. One Page belongs to one
+  /// workspace, so two brands can never share its conversations.
+  pageId              String             @unique
+  name                String
+  pictureUrl          String?
+  /// AES-256-GCM (lib/meta/oauth encryptToken). Never sent to the browser.
+  accessToken         String
+  tokenLast4          String?
+  /// null when the token does not expire.
+  tokenExpiresAt      DateTime?
+  dataAccessExpiresAt DateTime?
+  grantedScopes       String[]           @default([])
+  /// Webhook fields this app is subscribed to on the Page.
+  subscribedFields    String[]           @default([])
+  webhookSubscribed   Boolean            @default(false)
+  botEnabled          Boolean            @default(true)
+  status              FacebookPageStatus @default(ACTIVE)
+  lastError           String?
+  lastWebhookAt       DateTime?
+  tokenCheckedAt      DateTime?
+  connectedAt         DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  workspace     Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaigns     FacebookCampaign[]
+  commentLogs   FacebookCommentLog[]
+  conversations FacebookConversation[]
+
+  @@index([workspaceId])
+}
+
+/// Comment keyword → private reply with a link button to the landing page.
+model FacebookCampaign {
+  id                  String   @id @default(cuid())
+  workspaceId         String
+  facebookPageId      String
+  name                String
+  /// "<pageId>_<postId>" as sent in feed webhooks; null with matchAnyPost.
+  postId              String?
+  postPermalink       String?
+  postPreview         String?
+  matchAnyPost        Boolean  @default(false)
+  keywords            String[]
+  matchAnyWord        Boolean  @default(false)
+  wholeWordMatch      Boolean  @default(true)
+  /// Supports {name}.
+  privateReplyMessage String
+  /// Meta caps button titles at 20 characters.
+  buttonLabel         String
+  landingUrl          String
+  addUtm              Boolean  @default(true)
+  publicReplyEnabled  Boolean  @default(false)
+  publicReplyMessages String[] @default([])
+  /// What the campaign is about, given to the bot for conversations it starts.
+  botContext          String?
+  /// The catalog product the campaign promotes: the bot gets its full card.
+  productId           String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  page        FacebookPage         @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  commentLogs FacebookCommentLog[]
+  product     Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([facebookPageId, isActive])
+  @@index([postId])
+}
+
+enum FacebookCommentStatus {
+  PENDING
+  SENT
+  FAILED
+  /// The send may have gone through. Never retried automatically.
+  UNCONFIRMED
+  /// Older than the 7 days Meta allows for a private reply.
+  SKIPPED_EXPIRED
+  /// Meta 10900, or another campaign already used the one private reply.
+  SKIPPED_ALREADY_REPLIED
+  /// Meta 10903 / 551: this person cannot receive a private reply.
+  SKIPPED_NOT_ELIGIBLE
+  SKIPPED_RATE_LIMIT
+}
+
+/// One row per matched comment. The unique key is what enforces Meta's rule
+/// of a single private reply per comment, across retries and campaigns.
+model FacebookCommentLog {
+  id                             String                @id @default(cuid())
+  workspaceId                    String
+  facebookPageId                 String
+  campaignId                     String?
+  commentId                      String
+  postId                         String
+  parentId                       String?
+  commenterId                    String?
+  commenterName                  String?
+  commentText                    String
+  commentCreatedAt               DateTime
+  matchedKeyword                 String?
+  status                         FacebookCommentStatus @default(PENDING)
+  attempts                       Int                   @default(0)
+  /// Claim flag set before the send, cleared only by a confirmed outcome.
+  deliveryUnconfirmed            Boolean               @default(false)
+  privateReplySentAt             DateTime?
+  recipientPsid                  String?
+  privateReplyMessageId          String?
+  errorMessage                   String?
+  publicReplyDeliveryUnconfirmed Boolean               @default(false)
+  publicReplySentAt              DateTime?
+  publicReplyCommentId           String?
+  publicReplyError               String?
+  createdAt                      DateTime              @default(now())
+  updatedAt                      DateTime              @updatedAt
+
+  page     FacebookPage      @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  campaign FacebookCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@unique([facebookPageId, commentId])
+  @@index([workspaceId, createdAt])
+  @@index([campaignId])
+  @@index([status])
+}
+
+/// Why a conversation was handed to a person. Drives alert routing.
+enum HandoffCategory {
+  WHOLESALE_ORDER
+  CUSTOM_ORDER
+  COMPLAINT
+  NOT_IN_KB
+  AUDIO_FAILED
+  OTHER
+  /// The bot collected every detail of an order: a person confirms it (phase 11).
+  ORDER_READY
+}
+
+/// The customer's state, as the model reads it in each of its answers (phase 11).
+enum CustomerState {
+  NEUTRAL
+  PRICE_ONLY
+  HESITANT
+  READY_TO_BUY
+  ANGRY
+  WHOLESALE
+  CUSTOM_ORDER
+}
+
+enum FacebookConversationMode {
+  BOT
+  HUMAN
+}
+
+enum FacebookModeReason {
+  /// The bot asked for a person.
+  BOT_HANDOFF
+  /// Someone clicked "take over" in OpenReply.
+  INBOX_TAKEOVER
+  /// A person replied from Meta Business Suite or the Pages app.
+  META_REPLY
+  /// Returned to the bot from the inbox.
+  INBOX_RELEASE
+  /// The bot came back on its own: nobody from the team answered in time.
+  AUTO_RESUME
+}
+
+model FacebookConversation {
+  id               String                   @id @default(cuid())
+  workspaceId      String
+  facebookPageId   String
+  /// Page-scoped user ID.
+  psid             String
+  userName         String?
+  mode             FacebookConversationMode @default(BOT)
+  modeReason       FacebookModeReason?
+  modeChangedAt    DateTime?
+  needsHuman       Boolean                  @default(false)
+  handoffCategory  HandoffCategory?
+  handoffReason    String?
+  handoffAt        DateTime?
+  sourceCampaignId String?
+  sourceCommentId  String?
+  /// The 24-hour standard messaging window runs from the last inbound message.
+  lastInboundAt    DateTime?
+  lastOutboundAt   DateTime?
+  lastMessageText  String?
+  lastMessageAt    DateTime?
+  unreadCount      Int                      @default(0)
+  /// Catalog products the conversation is about (named, from the campaign, recognised in a photo).
+  focusProductIds  String[]                 @default([])
+  /// The customer's state at the bot's last answer.
+  customerState    CustomerState?
+  /// The order details collected so far (lib/bot/order.ts), until a person takes over.
+  orderDraft       Json?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  page     FacebookPage                @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  messages FacebookMessage[]
+  events   FacebookConversationEvent[]
+
+  @@unique([facebookPageId, psid])
+  @@index([workspaceId, needsHuman, lastMessageAt])
+  @@index([workspaceId, handoffCategory])
+}
+
+enum FacebookMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum FacebookMessageAuthor {
+  CUSTOMER
+  BOT
+  HUMAN
+  /// The private reply that opened the thread.
+  CAMPAIGN
+}
+
+enum FacebookMessageOrigin {
+  /// Sent through this app: the bot, a campaign, or the OpenReply inbox.
+  OPENREPLY
+  /// Seen only as an echo: Meta Business Suite, the Pages app, another tool.
+  EXTERNAL
+}
+
+enum FacebookTranscriptStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+enum FacebookSendStatus {
+  PENDING
+  SENT
+  FAILED
+  UNCONFIRMED
+}
+
+model FacebookMessage {
+  id               String                    @id @default(cuid())
+  workspaceId      String
+  conversationId   String
+  direction        FacebookMessageDirection
+  author           FacebookMessageAuthor
+  /// Outbound messages only.
+  origin           FacebookMessageOrigin?
+  /// The app_id an echo carried, kept to diagnose external senders.
+  echoAppId        String?
+  /// Messenger message ID. Unique, so a webhook retry never stores twice.
+  mid              String?                   @unique
+  /// For a bot reply: the inbound message it answers. Unique per
+  /// conversation, so one trigger can never get two replies.
+  replyToMid       String?
+  text             String?
+  attachmentType   String?
+  attachmentUrl    String?
+  transcript       String?
+  transcriptStatus FacebookTranscriptStatus?
+  sendStatus       FacebookSendStatus?
+  error            String?
+  /// The dashboard user who sent a HUMAN reply from the OpenReply inbox.
+  sentByUserId     String?
+  /// On a customer's message the bot answered: the customer's state the model read.
+  customerState    CustomerState?
+  /// A customer's photo: { status: PENDING | DONE | FAILED, recognition, error } (phase 12).
+  imageAnalysis    Json?
+  sentAt           DateTime                  @default(now())
+  createdAt        DateTime                  @default(now())
+
+  conversation FacebookConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, replyToMid])
+  @@index([conversationId, sentAt])
+}
+
+enum FacebookConversationEventType {
+  HANDOFF
+  HUMAN_TAKEOVER
+  RETURNED_TO_BOT
+}
+
+/// Conversation timeline. A HANDOFF event is what alerts are sent for.
+model FacebookConversationEvent {
+  id             String                        @id @default(cuid())
+  workspaceId    String
+  conversationId String
+  type           FacebookConversationEventType
+  category       HandoffCategory?
+  reason         String?
+  actorUserId    String?
+  createdAt      DateTime                      @default(now())
+
+  conversation FacebookConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+enum FacebookWebhookStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+/// Raw Page webhook deliveries for connected Pages, kept 30 days. Separate
+/// from WebhookEvent so the Instagram comment sweep never scans them.
+model FacebookWebhookEvent {
+  id           String                @id @default(cuid())
+  workspaceId  String?
+  pageId       String?
+  payload      Json
+  status       FacebookWebhookStatus @default(RECEIVED)
+  errorMessage String?
+  createdAt    DateTime              @default(now())
+  processedAt  DateTime?
+
+  @@index([createdAt])
+  @@index([pageId])
+}
+
+// ─── Bot knowledge base (per workspace, not tied to a channel) ──────────────
+
+model BotSettings {
+  workspaceId    String       @id
+  enabled        Boolean      @default(false)
+  businessName   String?
+  /// Tone, dialect and extra rules from the workspace.
+  instructions   String?
+  handoffMessage String       @default("نرجعولك")
+  /// Sent instead of handoffMessage when the bot came back on its own after a person went quiet.
+  busyMessage    String       @default("الفريق مشغول ضرك، نتصلو بيك من بعد")
+  /// The bot takes a conversation back when nobody from the team answered the customer for this
+  /// many minutes (0: never).
+  resumeAfterMinutes  Int     @default(20)
+  /// Or when the customer sent this many messages in a row without a person answering (0: never).
+  resumeAfterMessages Int     @default(3)
+  /// Phase 11: the bot's persona, goal and sales playbook (lib/bot/persona.ts).
+  personaName    String?
+  personaStyle   String?
+  /// null: the customer's own dialect.
+  dialect        String?
+  goal           BotGoal      @default(SELL)
+  goalNotes      String?
+  /// The order details collected before ORDER_READY (lib/bot/order.ts).
+  orderFields    OrderField[] @default([WILAYA, COLOUR, QUANTITY, NAME, PHONE])
+  /// null: the default playbook.
+  playbook       String?
+  /// Brand voice: a person's reply in the inbox is saved as a voice example on its own
+  /// (false: the inbox only offers to save it).
+  voiceAutoSave  Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+/// What the bot aims for with the brand's customers.
+enum BotGoal {
+  SELL
+  COLLECT_ORDER
+  COLLECT_INFO
+  ANSWER_ONLY
+}
+
+/// An order detail the bot can collect.
+enum OrderField {
+  WILAYA
+  COLOUR
+  QUANTITY
+  NAME
+  PHONE
+  ADDRESS
+}
+
+enum KnowledgeEntryKind {
+  PRODUCT
+  DELIVERY
+  FAQ
+  RULE
+  INFO
+}
+
+model KnowledgeEntry {
+  id          String             @id @default(cuid())
+  workspaceId String
+  kind        KnowledgeEntryKind
+  /// Product name, delivery zone, question or rule title.
+  title       String
+  content     String             @default("")
+  /// Product price or delivery fee, quoted verbatim by the bot.
+  price       String?
+  isActive    Boolean            @default(true)
+  sortOrder   Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, kind, isActive])
+}
+
+// ─── Handoff alerts (per workspace, not tied to a channel) ──────────────────
+
+enum AlertChannel {
+  TELEGRAM
+  EMAIL
+}
+
+enum AlertDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model AlertSettings {
+  workspaceId         String   @id
+  /// Telegram bot token from BotFather, encrypted. Never sent to the browser.
+  telegramBotToken    String?
+  /// From getMe, for display.
+  telegramBotUsername String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model AlertRecipient {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  channel        AlertChannel
+  label          String
+  /// A person or a group (group IDs are negative).
+  telegramChatId String?
+  email          String?
+  /// Receives the alerts of categories that have no route.
+  isDefault      Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  routes    AlertRoute[]
+
+  @@index([workspaceId])
+}
+
+/// Routing table: which recipients get the alerts of a handoff category.
+model AlertRoute {
+  id          String          @id @default(cuid())
+  workspaceId String
+  category    HandoffCategory
+  recipientId String
+  createdAt   DateTime        @default(now())
+
+  recipient AlertRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([category, recipientId])
+  @@index([workspaceId, category])
+}
+
+/// One row per alert per recipient. dedupeKey stops a retried job from
+/// sending the same alert twice.
+model AlertDelivery {
+  id             String              @id @default(cuid())
+  workspaceId    String
+  conversationId String?
+  eventId        String?
+  recipientId    String?
+  channel        AlertChannel
+  category       HandoffCategory?
+  dedupeKey      String              @unique
+  isTest         Boolean             @default(false)
+  status         AlertDeliveryStatus @default(PENDING)
+  attempts       Int                 @default(0)
+  error          String?
+  createdAt      DateTime            @default(now())
+  sentAt         DateTime?
+
+  @@index([workspaceId, createdAt])
+}
+
+// ─── Product catalog (per workspace) ────────────────────────────────────────
+// Like AlertRoute and AlertDelivery, these tables hold workspaceId without a
+// relation to Workspace, so the Workspace model keeps only the relation
+// fields approved in PLAN.md (workspaces are never deleted in this app).
+
+enum ProductAttributeType {
+  TEXT
+  NUMBER
+  CHOICE
+  BOOLEAN
+}
+
+enum ProductStatus {
+  /// Extracted by the AI (posts, conversations, interview): waits for a person.
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProductSource {
+  MANUAL
+  IMPORT
+  POST
+  CONVERSATION
+  INTERVIEW
+}
+
+/// One of a brand's own product attributes (thickness, material, water resistance...).
+model ProductAttribute {
+  id          String               @id @default(cuid())
+  workspaceId String
+  /// Stable key of the value in Product.attributes, e.g. "thickness".
+  key         String
+  /// As the brand says it, e.g. "السمك".
+  label       String
+  type        ProductAttributeType @default(TEXT)
+  unit        String?
+  /// The choices of a CHOICE attribute.
+  options     String[]             @default([])
+  sortOrder   Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([workspaceId, key])
+}
+
+/// A product card. Prices are kept as written and quoted as they are.
+model Product {
+  id          String        @id @default(cuid())
+  workspaceId String
+  status      ProductStatus @default(ACTIVE)
+  source      ProductSource @default(MANUAL)
+  /// The post, conversation or interview it came from.
+  sourceRef   String?
+  /// The words a draft was read from (a post's sentence), shown while it waits for a person.
+  sourceNote  String?
+  name        String
+  /// The product's code or number, as written.
+  code        String?
+  /// The code normalized for lookups (lib/catalog/codes.ts); unique in the brand.
+  codeKey     String?
+  price       String?
+  available   Boolean       @default(true)
+  landingUrl  String?
+  /// Free text about the product, in the brand's words.
+  description String?
+  /// How to install or use it.
+  howToUse    String?
+  /// { [ProductAttribute.key]: value }
+  attributes  Json          @default("{}")
+  strengths   String[]      @default([])
+  /// Compared with similar products or with competitors.
+  comparisons String?
+  /// The uses and places it suits.
+  suitableFor String?
+  /// [{ question, answer }]: the known questions and worries, with their answers.
+  objections  Json          @default("[]")
+  mainImageId String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  mainImage ProductImage?      @relation("ProductMainImage", fields: [mainImageId], references: [id], onDelete: SetNull)
+  images    ProductImage[]     @relation("ProductImages")
+  variants  ProductVariant[]
+  related   ProductRelation[]  @relation("ProductRelationFrom")
+  relatedBy ProductRelation[]  @relation("ProductRelationTo")
+  campaigns FacebookCampaign[]
+  suggestions KnowledgeSuggestion[]
+
+  @@unique([workspaceId, codeKey])
+  @@index([workspaceId, status])
+}
+
+/// A colour or type of a product, with its own code and image.
+model ProductVariant {
+  id          String   @id @default(cuid())
+  workspaceId String
+  productId   String
+  /// As written on the post's photos, e.g. "12".
+  code        String
+  /// The code normalized for lookups.
+  codeKey     String
+  name        String?
+  available   Boolean  @default(true)
+  /// When it differs from the product's price.
+  price       String?
+  imageId     String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  image   ProductImage? @relation(fields: [imageId], references: [id], onDelete: SetNull)
+
+  @@unique([productId, codeKey])
+  @@index([workspaceId, codeKey])
+}
+
+/// A product image, kept in the database (so the daily backup holds it) and
+/// served at /api/public/media/<publicId>, since Messenger fetches the images
+/// it sends.
+model ProductImage {
+  id          String   @id @default(cuid())
+  workspaceId String
+  productId   String?
+  /// Random and unguessable: all the public URL reveals.
+  publicId    String   @unique
+  /// image/jpeg, image/png or image/webp, read from the bytes.
+  mimeType    String
+  size        Int
+  sha256      String
+  data        Bytes
+  fileName    String?
+  createdAt   DateTime @default(now())
+
+  product   Product?         @relation("ProductImages", fields: [productId], references: [id], onDelete: Cascade)
+  mainOf    Product[]        @relation("ProductMainImage")
+  variantOf ProductVariant[]
+
+  @@index([workspaceId, productId])
+}
+
+/// An alternative or close product the bot may suggest.
+model ProductRelation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  productId   String
+  relatedId   String
+  /// Why it is suggested, e.g. "cheaper" or "thicker".
+  note        String?
+  createdAt   DateTime @default(now())
+
+  product Product @relation("ProductRelationFrom", fields: [productId], references: [id], onDelete: Cascade)
+  related Product @relation("ProductRelationTo", fields: [relatedId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, relatedId])
+}
+
+// ─── Filling the catalog and the knowledge base (phase 14) ──────────────────
+// workspaceId without a relation to Workspace, like the catalog tables above.
+
+enum SuggestionSource {
+  POST
+  CONVERSATION
+  INTERVIEW
+  HANDOFF_REPLY
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// A suggestion to enrich a product card or the knowledge base. Applied only when a person approves it.
+model KnowledgeSuggestion {
+  id              String           @id @default(cuid())
+  workspaceId     String
+  source          SuggestionSource
+  /// The thread, message, interview or post it came from.
+  sourceRef       String?
+  productId       String?
+  /// "faq" | "delivery" | "product.strengths" | "product.objections" | "product.comparisons" | "product.suitableFor"
+  target          String
+  /// { question, answer } | { text } | { items }
+  payload         Json
+  /// The words it came from (a quote, a transcript), for the person who reviews it.
+  evidence        String?
+  /// Set when a re-run could offer the same suggestion again: it is stored once.
+  dedupeKey       String?
+  status          SuggestionStatus @default(PENDING)
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime         @default(now())
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, dedupeKey])
+  @@index([workspaceId, status, createdAt])
+}
+
+/// The voice interview on Telegram, product by product and question by question.
+model KnowledgeInterview {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  /// The Telegram chat the questions go to.
+  chatId          String
+  /// ACTIVE | DONE | STOPPED (lib/knowledge/interview.ts)
+  status          String
+  productIds      String[]
+  position        Int       @default(0)
+  question        Int       @default(0)
+  lastAskedAt     DateTime?
+  startedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([workspaceId, status])
+}
+
+/// The next Telegram update the worker reads, per brand's bot.
+model TelegramCursor {
+  workspaceId String   @id
+  /// The bot the offset belongs to (the token's numeric prefix): a new bot starts again from 0.
+  botId       String?
+  offset      BigInt   @default(0)
+  updatedAt   DateTime @updatedAt
+}
+
+/// Chats that wrote to the brand's bot, for the alerts' chat picker once the worker reads the updates.
+model TelegramChatSeen {
+  workspaceId String
+  chatId      String
+  title       String?
+  type        String
+  lastSeenAt  DateTime
+
+  @@id([workspaceId, chatId])
+}
+
+/// A Page post already read into drafts: the next reading skips it, so a draft a person rejected or merged never comes back.
+model PostRead {
+  workspaceId String
+  /// The post's ID on Facebook.
+  postId      String
+  /// How many drafts it gave.
+  drafts      Int      @default(0)
+  readAt      DateTime @default(now())
+
+  @@id([workspaceId, postId])
+}
+
+// ─── Brand voice (lib/voice) ────────────────────────────────────────────────
+// Self-contained: the bot reads it, nothing else depends on it. The portable
+// JSON format is lib/voice/format.ts (VoicePack).
+
+/// Where a voice example or correction came from.
+enum VoiceSource {
+  SEED
+  MANUAL
+  HUMAN_REPLY
+  INBOX_CORRECTION
+  IMPORT
+}
+
+/// A real sales exchange the bot imitates: what a customer wrote, and a good reply in the
+/// shop's own voice. workspaceId null: the global set every brand gets.
+model VoiceExample {
+  id              String      @id @default(cuid())
+  workspaceId     String?
+  customerText    String
+  replyText       String
+  source          VoiceSource @default(MANUAL)
+  isActive        Boolean     @default(true)
+  /// The inbox message it was learned from (FacebookMessage.id): saved once.
+  sourceMessageId String?     @unique
+  createdByUserId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, isActive])
+}
+
+/// A known mistake: the wrong phrase, and the phrase(s) to write instead. workspaceId null:
+/// the global dictionary.
+model VoiceCorrection {
+  id              String      @id @default(cuid())
+  workspaceId     String?
+  wrong           String
+  right           String[]
+  source          VoiceSource @default(MANUAL)
+  isActive        Boolean     @default(true)
+  createdByUserId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, isActive])
 }

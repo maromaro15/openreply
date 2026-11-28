@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientBlockedResponse } from "@/lib/agency/http";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import {
@@ -14,12 +15,12 @@ import {
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["ADMIN", "MEMBER"]).default("MEMBER"),
+  role: z.enum(["ADMIN", "MEMBER", "VIEWER"]).default("MEMBER"),
 });
 
 const updateMemberSchema = z.object({
   memberId: z.string().min(1),
-  role: z.enum(["ADMIN", "MEMBER"]),
+  role: z.enum(["ADMIN", "MEMBER", "VIEWER"]),
 });
 
 const deleteSchema = z.object({
@@ -29,7 +30,7 @@ const deleteSchema = z.object({
 
 async function getMemberPayload(
   workspaceId: string,
-  currentUserRole?: "OWNER" | "ADMIN" | "MEMBER"
+  currentUserRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER"
 ) {
   const [members, invitations] = await Promise.all([
     prisma.workspaceMember.findMany({
@@ -80,6 +81,8 @@ export async function GET() {
       { status: 401 }
     );
   }
+  // The team is the agency's business, not the brand owner's.
+  if (context.role === "VIEWER") return clientBlockedResponse();
 
   return NextResponse.json({
     success: true,

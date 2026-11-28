@@ -1,27 +1,54 @@
 @import "tailwindcss";
 
-/* ManyChat Alternative — Design System
-   Plain and functional. No gradients, glass, glow, or animation. */
+/* Amitec Reply — design tokens. Every colour, font, radius and shadow of the
+   app is defined here, once. The public site has its own (site.css).
+
+   Ink on bone and white cards; orange only for primary buttons, active
+   states, badges and the unread dot. Orange is never text: on white it is
+   3.1:1, under WCAG AA, so text on orange is ink (6.3:1). The text colours
+   below pass AA (4.5:1) on bone and on white; __tests__/theme-contrast checks it. */
 
 @theme inline {
-  --color-background: #ffffff;
-  --color-foreground: #18181b;
-  --color-surface: #f7f7f8;
-  --color-surface-hover: #efeff1;
-  --color-border: #e4e4e7;
-  --color-border-hover: #d4d4d8;
-  --color-muted: #71717a;
-  --color-accent: #f97316;
-  --color-accent-hover: #ea580c;
-  --color-success: #16a34a;
-  --color-error: #dc2626;
-  --color-warning: #d97706;
-  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, monospace;
+  /* Colours */
+  --color-ink: #0b0b0c;
+  --color-bone: #f6f4f1;
+  --color-background: var(--color-bone); /* the page */
+  --color-foreground: var(--color-ink);
+  --color-surface: #ffffff; /* cards, menu, inputs */
+  --color-surface-hover: #f0ede8; /* hover, and selected without orange */
+  --color-border: #e4ded6;
+  --color-border-hover: #cfc7bc;
+  --color-muted: #66625c; /* secondary text: 5.5:1 on bone, 6.1:1 on white */
+  --color-zinc-500: #66625c; /* the same grey where the markup says zinc-500 */
+  --color-accent: #ff5a1f;
+  --color-accent-hover: #f04e12;
+  --color-accent-foreground: var(--color-ink); /* text on orange */
+  --color-accent-soft: #ffe9e0; /* selected item behind ink text */
+  --color-focus: #d9480f; /* focus ring: 3.9:1 on bone */
+  /* Status text: AA on bone, white, and their own 5–15% tinted chips. */
+  --color-success: #126e34;
+  --color-error: #b42318;
+  --color-warning: #934b00;
+
+  /* Fonts (loaded in app/layout.tsx). Google Sans has no Arabic subset
+     loaded, so Arabic letters fall to Noto Sans Arabic in the same stack. */
+  --font-sans: var(--font-google-sans), var(--font-noto-arabic), system-ui, sans-serif;
+  --font-mono: var(--font-google-sans-code), var(--font-noto-arabic), ui-monospace, monospace;
+  --font-label: var(--font-google-sans-code), var(--font-noto-arabic), ui-monospace, monospace; /* small caps labels */
+  --font-accent: var(--font-instrument-serif), Georgia, serif; /* italic accent words only */
+
+  /* Shape */
+  --radius: 0.625rem; /* rounded: buttons, inputs, cards */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-card: 0 1px 2px rgb(11 11 12 / 0.04), 0 2px 8px rgb(11 11 12 / 0.04);
+  --shadow-pop: 0 8px 24px rgb(11 11 12 / 0.12);
 }
 
 html {
   color-scheme: light;
+  /* Checkboxes, radios, range: a checked box is an active state. */
+  accent-color: var(--color-accent);
 }
 
 body {
@@ -32,7 +59,7 @@ body {
 
 /* Focus ring — visible, for keyboard users. */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -55,10 +82,28 @@ select:focus-visible {
   }
 }
 
-/* Panel — flat container. Replaces .glass / .glass-strong. */
+/* Panel — the card. Replaces .glass / .glass-strong. */
 .panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* Small caps labels (section titles of the menu and the forms). */
+.label-caps {
+  font-family: var(--font-label);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Arabic has no capitals, and spaced-out letters break its joined script. */
+[dir="rtl"] .label-caps,
+.label-caps:lang(ar) {
+  font-size: 0.8125rem;
+  letter-spacing: 0;
 }
 
 /* Kept as no-op aliases so existing markup degrades to plain surfaces

@@ -7,6 +7,7 @@ import {
   MetaApiError,
 } from "@/lib/instagram/provider";
 import { createInstagramContext } from "@/lib/instagram/provider";
+import { rejectViewer } from "@/lib/agency/http";
 
 export interface ConversationListItem {
   id: string;
@@ -101,6 +102,8 @@ export async function GET(request: NextRequest) {
 
 // Send a direct message reply.
 export async function POST(request: NextRequest) {
+  const viewOnly = await rejectViewer();
+  if (viewOnly) return viewOnly;
   const workspaceId = await getCurrentWorkspaceId();
   if (!workspaceId) {
     return NextResponse.json(

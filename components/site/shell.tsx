@@ -37,7 +37,7 @@ export function SiteFooter() {
           <div>
             <Link href="/" className="wordmark">
               <LogoMark className="wordmark-mark" />
-              <span>OpenReply</span>
+              <span>Amitec Reply</span>
             </Link>
             <p className="caption-5">
               Open source Instagram comment-to-DM automation.

@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { duplicateCampaign } from "@/lib/campaigns/duplicate";
 import {
   canManageWorkspace,
-  getCurrentWorkspaceContext,
-} from "@/lib/workspace-access";
+  getCurrentWorkspaceContext } from "@/lib/workspace-access";
+import { rejectViewer } from "@/lib/agency/http";
 
 export async function POST(request: NextRequest) {
+  const viewOnly = await rejectViewer();
+  if (viewOnly) return viewOnly;
   const context = await getCurrentWorkspaceContext();
   if (!context) {
     return NextResponse.json(

@@ -1,0 +1,138 @@
+# OpenReply on one VPS: Postgres, Redis, the Next.js app, the Instagram worker,
+# the Facebook worker (with ffmpeg), the cron scheduler and Caddy for HTTPS.
+#
+#   cp .env.example .env   # fill it in, then:
+#   docker compose up -d --build
+#
+# Run every command from this directory (deploy/vps). Compose reads `.env`
+# next to this file both for the ${VARS} below and for env_file. No secret
+# lives in this file. Only Caddy publishes ports; Postgres and Redis are
+# reachable from the other containers only.
+
+x-app: &app
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  image: openreply-app:vps
+  restart: unless-stopped
+  env_file: .env
+  environment: &app-env
+    # Inside containers "localhost" is the container itself, so the hosts are
+    # the service names. These override whatever .env says.
+    DATABASE_URL: postgresql://openreply:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/openreply
+    REDIS_URL: redis://redis:6379
+    NEXTAUTH_URL: https://${DOMAIN:?set DOMAIN in .env}
+  depends_on: &app-deps
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openreply
+      POSTGRES_USER: openreply
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openreply -d openreply"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # appendonly: queued jobs survive a restart of the container or the VPS.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    <<: *app
+    # Migrations first; if they fail the container exits and restarts instead
+    # of serving a schema that does not match the code.
+    command: ["sh", "-c", "npx prisma migrate deploy && exec npm run start"]
+    expose:
+      - "3000"
+    healthcheck:
+      # Liveness only: any HTTP answer counts. /api/health answers 503 while a
+      # worker heartbeat is missing, which must not hold the app back.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(() => process.exit(0), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  # Instagram DM worker.
+  worker:
+    <<: *app
+    command: ["npm", "run", "worker"]
+    depends_on:
+      <<: *app-deps
+      app:
+        # The app applies the migrations; wait for it before using the tables.
+        condition: service_healthy
+
+  # Facebook Pages / Messenger worker. Own image: it needs ffmpeg for voice
+  # messages. It also sends the handoff alerts.
+  facebook-worker:
+    build:
+      context: ../..
+      dockerfile: deploy/vps/facebook-worker.Dockerfile
+    image: openreply-facebook-worker:vps
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *app-env
+      FFMPEG_PATH: ffmpeg
+    depends_on:
+      <<: *app-deps
+      app:
+        condition: service_healthy
+
+  # Scheduler for /api/cron (Instagram token refresh and the daily jobs).
+  # Nothing else runs them off Vercel; without it tokens expire silently.
+  cron:
+    <<: *app
+    command: ["sh", "scripts/cron.sh"]
+    environment:
+      <<: *app-env
+      CRON_BASE_URL: http://app:3000
+    depends_on:
+      app:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

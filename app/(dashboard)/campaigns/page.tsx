@@ -305,7 +305,7 @@ export default function CampaignsPage() {
           </Link>
           <Link
             href="/campaigns/new"
-            className="flex-1 rounded bg-accent px-4 py-2 text-center text-sm font-medium text-white hover:bg-accent-hover sm:flex-none"
+            className="flex-1 rounded bg-accent px-4 py-2 text-center text-sm font-medium text-accent-foreground hover:bg-accent-hover sm:flex-none"
           >
             {t("New Campaign")}
           </Link>
@@ -349,7 +349,7 @@ export default function CampaignsPage() {
           </p>
           <Link
             href="/campaigns/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-accent text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-accent text-sm font-semibold text-accent-foreground hover:bg-accent-hover transition-colors"
           >
             {t("Create Campaign")}
           </Link>
@@ -438,12 +438,12 @@ export default function CampaignsPage() {
                     </span>
                   )}
                   {auto.requireFollow && (
-                    <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                    <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-foreground">
                       {t("Follow gate")}
                     </span>
                   )}
                   {auto.trackedLinks.length >= 2 && (
-                    <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                    <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-foreground">
                       {t("2 links")}
                     </span>
                   )}
@@ -454,7 +454,7 @@ export default function CampaignsPage() {
                   {auto.keywords.map((kw) => (
                     <span
                       key={kw}
-                      className="px-2 py-0.5 rounded-md bg-accent/10 text-accent text-xs font-medium border border-accent/10"
+                      className="px-2 py-0.5 rounded-md bg-accent-soft text-foreground text-xs font-medium border border-accent/10"
                     >
                       {kw}
                     </span>
@@ -506,7 +506,7 @@ export default function CampaignsPage() {
 
               {/* Actions */}
               <div
-                className="ml-auto flex items-center gap-2"
+                className="ms-auto flex items-center gap-2"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Copy reel URL */}
@@ -529,7 +529,7 @@ export default function CampaignsPage() {
                   <span
                     className={`
                       absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow-sm
-                      ${auto.isActive ? "left-6" : "left-1"}
+                      ${auto.isActive ? "start-6" : "start-1"}
                     `}
                   />
                 </button>
@@ -551,10 +551,10 @@ export default function CampaignsPage() {
                         className="fixed inset-0 z-10"
                         onClick={() => setMenuOpenId(null)}
                       />
-                      <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+                      <div className="absolute end-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
                         <button
                           onClick={() => void duplicateAutomation(auto.id)}
-                          className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-surface-hover"
+                          className="block w-full px-3 py-2 text-start text-sm text-foreground hover:bg-surface-hover"
                         >
                           {t("Duplicate")}
                         </button>
@@ -563,7 +563,7 @@ export default function CampaignsPage() {
                             setMenuOpenId(null);
                             void deleteAutomation(auto.id);
                           }}
-                          className="block w-full px-3 py-2 text-left text-sm text-error hover:bg-surface-hover"
+                          className="block w-full px-3 py-2 text-start text-sm text-error hover:bg-surface-hover"
                         >
                           {t("Delete")}
                         </button>

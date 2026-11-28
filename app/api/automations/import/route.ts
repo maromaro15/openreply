@@ -6,8 +6,8 @@ import { generateReportShareSlug } from "@/lib/reports/share";
 import { generateTrackedLinkSlug } from "@/lib/tracking/server";
 import {
   canManageWorkspace,
-  getCurrentWorkspaceContext,
-} from "@/lib/workspace-access";
+  getCurrentWorkspaceContext } from "@/lib/workspace-access";
+import { rejectViewer } from "@/lib/agency/http";
 
 const campaignSchema = z.object({
   postId: z.string().min(1),
@@ -28,6 +28,8 @@ const importSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const viewOnly = await rejectViewer();
+  if (viewOnly) return viewOnly;
   const context = await getCurrentWorkspaceContext();
   if (!context) {
     return NextResponse.json(

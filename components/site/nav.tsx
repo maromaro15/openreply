@@ -68,18 +68,18 @@ export function SiteNav({
             <Link
               href="/"
               className="wordmark"
-              aria-label="OpenReply home"
+              aria-label="Amitec Reply home"
               onClick={() => setOpen(false)}
             >
               <LogoMark className="wordmark-mark" />
-              <span>OpenReply</span>
+              <span>Amitec Reply</span>
             </Link>
             <a
               className="nav-stars"
               href={githubUrl}
               target="_blank"
               rel="noreferrer"
-              aria-label="View OpenReply on GitHub"
+              aria-label="View Amitec Reply on GitHub"
             >
               <GithubIcon />
               {stars !== null && <span>{formatStars(stars)} stars</span>}

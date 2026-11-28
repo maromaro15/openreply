@@ -91,7 +91,7 @@ function Radio({
     <button
       type="button"
       onClick={onSelect}
-      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-start text-sm transition-colors ${
         checked ? "border-accent bg-accent/5" : "border-border hover:border-border-hover"
       }`}
     >
@@ -124,7 +124,7 @@ function Toggle({
     >
       <span
         className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
-          on ? "left-6" : "left-1"
+          on ? "start-6" : "start-1"
         }`}
       />
     </button>
@@ -589,7 +589,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             <span className="text-sm text-muted">{t("New campaign")}</span>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2">
           {importQueue && (
             <button
               type="button"
@@ -624,7 +624,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             type="button"
             onClick={() => handleSubmit(mode === "new" ? true : isActive)}
             disabled={saving}
-            className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+            className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
           >
             {saving ? t("Saving…") : mode === "new" ? t("Go Live") : t("Save changes")}
           </button>
@@ -802,7 +802,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                   onClick={() =>
                     setPublicReplyMessages((prev) => [...prev, ""])
                   }
-                  className="text-xs font-medium text-accent hover:underline"
+                  className="text-xs font-medium text-foreground underline underline-offset-2"
                 >
                   {t("+ Add another reply")}
                 </button>

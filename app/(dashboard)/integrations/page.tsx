@@ -57,16 +57,16 @@ export default function IntegrationsPage() {
     {notice && <p role="status">{notice}</p>}
     <section className="space-y-3 rounded border border-border p-4">
       <label className="block">{t("Key name")}<input maxLength={100} disabled={busy} className="w-full rounded border border-border p-2" value={name} onChange={e => setName(e.target.value)} /></label>
-      <label className="block">{t("Key lifetime")}<select disabled={busy} value={days} onChange={e => setDays(Number(e.target.value))} className="ml-3 rounded border border-border p-2">
+      <label className="block">{t("Key lifetime")}<select disabled={busy} value={days} onChange={e => setDays(Number(e.target.value))} className="ms-3 rounded border border-border p-2">
         {[30, 60, 90].map(value => <option key={value} value={value}>{t("{days} days", { days: value })}</option>)}
       </select></label>
       <p className="text-sm text-muted">{t("Applies only to new keys. Existing expiration dates do not change.")}</p>
-      <button disabled={busy || !name.trim()} onClick={create} className="rounded bg-accent px-4 py-2 text-white disabled:opacity-50">{t("Create key for {days} days", { days })}</button>
+      <button disabled={busy || !name.trim()} onClick={create} className="rounded bg-accent px-4 py-2 text-accent-foreground disabled:opacity-50">{t("Create key for {days} days", { days })}</button>
       {token && <div role="status" className="space-y-2">
         <p>{t("Shown once. Store securely; never put keys in URLs, screenshots or GitHub.")}</p>
         <input aria-label={t("New service key")} type="password" readOnly value={token} className="w-full rounded border border-border p-2" />
         <button onClick={() => navigator.clipboard.writeText(token).catch(() => setNotice(t("Could not copy key. Use a secure HTTPS connection.")))}>{t("Copy")}</button>
-        <button className="ml-4" onClick={() => setToken("")}>{t("Hide key")}</button>
+        <button className="ms-4" onClick={() => setToken("")}>{t("Hide key")}</button>
       </div>}
     </section>
     <section className="space-y-3">{keys.map(key => <div key={key.id} className="rounded border border-border p-4">

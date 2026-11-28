@@ -3,12 +3,14 @@ import Nodemailer from "next-auth/providers/nodemailer";
 import Resend from "next-auth/providers/resend";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db/client";
-import { ensureWorkspaceForUser, getPrimaryWorkspace } from "@/lib/workspace";
+import { ensureWorkspaceForUser, getWorkspaceMembership } from "@/lib/workspace";
 import { isEmailAllowedToSignIn } from "@/lib/env";
+import { findSelectedMembership } from "@/lib/agency/active-workspace";
+import { isInvitedToAWorkspace } from "@/lib/agency/sign-in";
 
 type AdapterPrismaClient = Parameters<typeof PrismaAdapter>[0];
 
-const emailFrom = process.env.EMAIL_FROM ?? "OpenReply <login@example.com>";
+const emailFrom = process.env.EMAIL_FROM ?? "Amitec Reply <login@example.com>";
 // Setting EMAIL_SERVER switches magic links to your own SMTP server, for
 // self-hosters who do not want a third-party mail service. Resend stays the
 // default, so an existing deployment is unaffected.
@@ -34,7 +36,10 @@ export const authConfig = {
     // Runs before the magic link is sent, so a blocked address never receives
     // one, and again when the link is verified.
     async signIn({ user }) {
-      return isEmailAllowedToSignIn(user?.email);
+      if (isEmailAllowedToSignIn(user?.email)) return true;
+      // With ALLOWED_EMAILS set, people a workspace owner or admin invited
+      // can still sign in, so brand teams need no .env change.
+      return isInvitedToAWorkspace(user?.email);
     },
     async session({ session, user }) {
       if (session.user) {
@@ -72,8 +77,15 @@ export async function getCurrentWorkspaceId(): Promise<string | null> {
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
-  const workspace = await getPrimaryWorkspace(userId);
-  if (workspace) return workspace.id;
+  // The brand picked in the workspace switcher, when the user belongs to it.
+  // A brand owner (VIEWER) gets nothing here: the routes that use it (Instagram, DM logs,
+  // automations, diagnostics) are the team's. Their inbox and statistics go through
+  // requireWorkspace (lib/agency/http.ts), which lets them read those alone.
+  const selected = await findSelectedMembership(userId);
+  if (selected) return selected.role === "VIEWER" ? null : selected.workspaceId;
+
+  const membership = await getWorkspaceMembership(userId);
+  if (membership) return membership.role === "VIEWER" ? null : membership.workspace.id;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
